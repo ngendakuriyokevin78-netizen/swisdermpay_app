@@ -1,0 +1,38 @@
+# ============================================================
+# Cash Tel — Dépendances Python
+# ============================================================
+
+# Framework principal
+Django==5.1.2
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.3.1
+
+# Documentation API Swagger
+drf-yasg==1.21.7
+
+# CORS et filtres
+django-cors-headers==4.4.0
+django-filter==24.3
+
+# Variables d'environnement
+django-environ==0.11.2
+
+# Base de données PostgreSQL
+psycopg2-binary==2.9.9
+
+# Cache et tâches asynchrones
+celery==5.3.6
+redis==5.0.3
+
+# Génération de QR Code
+qrcode[pil]==7.4.2
+Pillow==10.4.0
+
+# Serveur de production WSGI
+gunicorn==22.0.0
+whitenoise==6.7.0
+
+# Tests
+pytest==8.3.2
+pytest-django==4.8.0
+factory-boy==3.3.0

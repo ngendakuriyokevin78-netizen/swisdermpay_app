@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vendeur Swisderm — QR à scanner</title>
+<style>body{font-family:system-ui;text-align:center;background:#0f0f1a;color:#fff;padding:20px}input,button{padding:13px;margin:6px;border-radius:10px;font-size:16px;width:100%;max-width:400px}button{background:#e94560;color:#fff;border:none;font-weight:700}#qr{font-size:18px;background:#fff;color:#000;padding:16px;border-radius:12px;word-break:break-all;max-width:400px;margin:12px auto}</style>
+</head>
+<body>
+<h2>🏪 Vendeur Swisderm</h2>
+<p>Connectez-vous (compte marchand), saisissez commande ou produit, montrez le QR au client qui le scanne avec <a style="color:#e94560" href="/m/">/m/</a>.</p>
+<input id="phone" placeholder="+257..."><input id="pin" type="password" placeholder="PIN" maxlength="4">
+<button onclick="login()">Connexion vendeur</button>
+<input id="order" placeholder="N° commande (CMD-...) — ou vide">
+<input id="sku" placeholder="SKU produit (optionnel)">
+<button onclick="qr()">Générer QR à faire scanner</button>
+<div id="qr">—</div>
+<hr style="margin:20px 0;border-color:#333">
+<h3>💵 Confirmer retrait client (agents)</h3>
+<p><small>Le client vous montre son code à 6 chiffres → saisissez → remettez le cash.</small></p>
+<input id="wcode" placeholder="Code 6 chiffres" maxlength="6" inputmode="numeric">
+<button onclick="confirmW()">Confirmer + remettre cash</button>
+<div id="wmsg"></div>
+<hr style="margin:20px 0;border-color:#333">
+<h3>💰 Ma commission</h3>
+<button onclick="myCom()">Voir ma commission</button>
+<button onclick="claimCom()">Tout verser sur mon wallet</button>
+<div id="cmsg"></div>
+<script>
+const API=location.origin;let T='';
+async function login(){const r=await fetch(API+'/api/auth/login/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone_number:phone.value,pin:pin.value})});const j=await r.json();if(j.success){T=j.access;alert('Connecté');}else alert(j.error);}
+async function qr(){const o=order.value, s=sku.value;let u=API+'/api/merchant/my-qr/?'+(o?'order_number='+encodeURIComponent(o):s?'sku='+encodeURIComponent(s)+'&qty=1':'');const r=await fetch(u,{headers:{Authorization:'Bearer '+T}});const j=await r.json();document.getElementById('qr').textContent=j.qr_data||j.error;}
+async function confirmW(){const r=await fetch(API+'/api/agent/withdraw-confirm/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+T},body:JSON.stringify({code:wcode.value})});const j=await r.json();document.getElementById('wmsg').textContent=j.success?'✅ '+j.message:'❌ '+(j.error||'Échec');}
+async function myCom(){const r=await fetch(API+'/api/agent/commission/',{headers:{Authorization:'Bearer '+T}});const j=await r.json();document.getElementById('cmsg').innerHTML=j.success?`<p>💰 Commission : <b>${j.commission_balance} BIF</b> | Wallet : <b>${j.wallet_balance} BIF</b></p>`+j.history.map(h=>`<small>${h.date} — ${h.type} — gain ${h.commission} BIF (montant ${h.amount})</small><br>`).join(''):'❌ '+(j.error||'Échec');}
+async function claimCom(){const r=await fetch(API+'/api/agent/commission/claim/',{method:'POST',headers:{Authorization:'Bearer '+T}});const j=await r.json();document.getElementById('cmsg').textContent=j.success?'✅ '+j.message:'❌ '+(j.error||'Échec');}
+</script>
+</body>
+</html>

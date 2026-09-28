@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+{% load static %}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<title>Swisderm Pay — Scanner & Payer</title>
+<style>
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:system-ui,Roboto,Arial;background:#0f0f1a;color:#fff;min-height:100vh;line-height:1.4}
+header{background:#1a1a2e;padding:12px 16px;position:sticky;top:0;z-index:5;border-bottom:2px solid #e94560}
+header h1{margin:0;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#loginCard,#app{max-width:600px;margin:0 auto;width:100%}
+.solde{background:#16213e;margin:12px;border-radius:12px;padding:14px;text-align:center}
+.solde b{font-size:clamp(22px,6vw,28px);color:#4ade80;word-break:break-all}
+#reader{width:100%;max-width:420px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;min-height:200px}
+#reader video{width:100%!important;height:auto!important;object-fit:cover}
+.card{background:#1a1a2e;margin:10px 12px;border-radius:12px;padding:14px;overflow-wrap:break-word}
+input,select,button{width:100%;max-width:100%;padding:13px;margin:6px 0;border-radius:10px;border:1px solid #333;font-size:16px;min-height:44px}
+input,select{background:#0f0f1a;color:#fff}select option{color:#000}
+button{background:#e94560;color:#fff;border:none;font-weight:700;cursor:pointer;white-space:normal}
+button.ghost{background:#16213e}button:disabled{opacity:.5}.ok{color:#4ade80}.err{color:#f87171}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 12px}
+.tabs button{flex:1 1 calc(33.333% - 6px);min-width:90px;width:auto;padding:10px 6px;font-size:14px;margin:0}
+.qr-ok{background:#052e16;border:1px solid #4ade80;padding:10px;border-radius:10px;word-break:break-all;font-size:14px}
+small{color:#aaa}
+#pendings .card,#orders p,#history p{font-size:14px}
+div[style*="display:flex"]{flex-wrap:wrap}
+div[style*="display:flex"]>button{flex:1 1 140px;width:auto;min-width:120px}
+.zoom-phone{display:none}
+@media (max-width:600px){
+  .zoom-pc{display:none}
+  .zoom-phone{display:block;margin-top:6px}
+  .zoom-phone select{font-size:14px;min-height:38px}
+}
+@media (max-width:480px){
+  header h1{font-size:16px}
+  .card{margin:8px;padding:12px}
+  .tabs{margin:8px;gap:6px}
+  .tabs button{flex:1 1 calc(50% - 6px);font-size:13px}
+  #reader{min-height:180px}
+  h3{font-size:16px;margin:8px 0}
+}
+@media (min-width:601px){
+  .tabs button{flex:1;margin:0}
+}
+@media (min-width:900px){
+  #loginCard,#app{max-width:1100px}
+  body{font-size:17px}
+  header h1{font-size:22px}
+  .card{padding:22px;font-size:17px}
+  input,select,button{font-size:17px;padding:14px}
+  #tab-admin .card,.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  #pendings,#orders,#history,#aAllTx{font-size:15px}
+}
+html[data-zoom="grand"]{font-size:19px}
+html[data-zoom="grand"] .card{padding:22px}
+html[data-zoom="tres-grand"]{font-size:21px}
+html[data-zoom="tres-grand"] #loginCard,html[data-zoom="tres-grand"] #app{max-width:1400px}
+</style>
+<script src="{% static 'mobile/js/html5-qrcode.min.js' %}"></script>
+<script>if(typeof Html5Qrcode==='undefined'){document.write('<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"><\/script>');}</script>
+</head>
+<body>
+<header><h1>💄 Swisderm Pay <small>Cash Tel</small></h1><div class="zoom-pc"><small>Affichage :</small> <button onclick="setZoom('')" style="width:auto;padding:4px 10px;margin:0">Normal</button> <button onclick="setZoom('grand')" style="width:auto;padding:4px 10px;margin:0">Grand</button> <button onclick="setZoom('tres-grand')" style="width:auto;padding:4px 10px;margin:0">Très grand</button></div><div class="zoom-phone"><select id="zoomSel" onchange="setZoom(this.value)" style="width:auto;padding:6px;margin:0"><option value="">📱 Normal</option><option value="grand">📱 Grand</option><option value="tres-grand">📱 Très grand</option></select></div></header>
+<div id="maintBanner" style="display:none;background:#7f1d1d;color:#fff;padding:10px;text-align:center;font-weight:700"></div>
+
+<div id="loginCard" class="card">
+  <h3>Connexion</h3>
+  <input id="phone" placeholder="+25762XXXXXXX" inputmode="tel" value="+257">
+  <input id="pin" placeholder="PIN 4 chiffres" type="password" inputmode="numeric" maxlength="4">
+  <button type="button" id="loginBtn" onclick="doLogin()">Se connecter</button>
+  <div id="loginMsg"></div>
+  <small>Compte test : créez via /api/docs/ → POST /api/auth/register/ puis verify-otp.</small>
+  <div><small id="jsok" style="color:#e94560">Chargement...</small></div>
+</div>
+<script>
+// Mini-script ES5 : prouve que JavaScript tourne (independant du gros script)
+try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch(e){}</script>
+
+<div id="app" style="display:none">
+  <div class="solde"><div id="balanceLabel">Solde disponible</div><b id="balance">— BIF</b><div><small id="who"></small></div>
+    <button class="ghost" onclick="loadWallet()">Actualiser</button>
+    <button class="ghost" onclick="doLogout()">Se deconnecter</button></div>
+
+  <div class="tabs">
+    <button onclick="showTab('scan')">Scanner</button>
+    <button onclick="showTab('manual')">Manuel</button>
+    <button onclick="showTab('transfert')">Transfert</button>
+    <button onclick="showTab('attente')">Attente</button>
+    <button onclick="showTab('cashout')">Retrait</button>
+    <button onclick="showTab('orders')">Achats</button>
+    <button onclick="showTab('history')">Historique</button>
+    <button onclick="showTab('admin')">Admin</button>
+  </div>
+
+  <div id="tab-scan" class="card">
+    <h3>1. Scannez le QR du produit / vendeur</h3>
+    <div id="reader"></div>
+    <button class="ghost" onclick="startScan()">▶ Démarrer caméra</button>
+    <button class="ghost" onclick="stopScan()">⏹ Stop</button>
+    <p><small>PC sans caméra : choisissez une image QR.</small></p>
+    <input type="file" id="qr_file" accept="image/*" onchange="scanFile(this)">
+    <div id="qrOut"></div>
+    <h3>Mon QR pour recevoir (montant obligatoire)</h3>
+    <input id="qr_amount_first" placeholder="Saisissez le montant d'envoi BIF" inputmode="decimal">
+    <button class="ghost" onclick="showMyQR()">Afficher mon QR</button>
+    <div id="myqr"></div>
+    <h3>Mon QR avec montant (sans saisie côté payeur)</h3>
+    <input id="qr_amount" placeholder="Montant BIF ex 5000" inputmode="decimal">
+    <button class="ghost" onclick="showMyQRAmount()">Afficher QR avec montant</button>
+    <div id="myqramt"></div>
+    <h3>2. Confirmez le paiement auto</h3>
+    <input id="qr_data" placeholder="QR scanné (SWISDERM:... ou SWISDERMPAY:...)">
+    <input id="amount" placeholder="Montant (auto si dans QR, requis si SWISDERMPAY)" inputmode="decimal">
+    <input id="paypin" placeholder="PIN 4 chiffres" type="password" inputmode="numeric" maxlength="4">
+    <button onclick="payAuto()">⚡ Payer automatiquement</button>
+    <div id="payMsg"></div>
+  </div>
+
+  <div id="tab-manual" class="card" style="display:none">
+    <h3>Achat manuel Swisderm</h3>
+    <input id="m_merchant" placeholder="Boutique : Swisderm" value="Swisderm">
+    <input id="m_sku" placeholder="Réf produit (SKU)">
+    <input id="m_qty" placeholder="Qté" value="1" inputmode="numeric">
+    <input id="m_pin" placeholder="PIN" type="password" maxlength="4" inputmode="numeric">
+    <button onclick="payManual()">Créer + payer la commande</button>
+    <div id="mMsg"></div>
+  </div>
+
+  <div id="tab-transfert" class="card" style="display:none">
+    <h3>Transfert vers un autre client</h3>
+    <p><small>Envoyez de l'argent au numero de telephone du destinataire. Envoi immédiat.</small></p>
+    <input id="t_phone" placeholder="Numero destinataire +257..." inputmode="tel" onblur="lookupName('t_phone','t_name')">
+    <div id="t_name"><small>Nom : —</small></div>
+    <div style="display:flex;gap:8px">
+      <button class="ghost" onclick="pickContact('t_phone')" style="flex:1">📇 Contacts</button>
+      <button class="ghost" onclick="loadRecents('t_recent','t_phone','t_name')" style="flex:1">↻ Récents</button>
+    </div>
+    <select id="t_recent" onchange="useRecent('t_recent','t_phone','t_name')"><option value="">— Choisir un contact récent —</option></select>
+    <button class="ghost" onclick="importContacts('t_imported','t_phone','t_name')">⬇ Importer tout le carnet</button>
+    <select id="t_imported" onchange="useRecent('t_imported','t_phone','t_name')"><option value="">— Carnet importé —</option></select>
+    <input type="file" id="t_file" accept=".vcf,.csv" style="font-size:13px" onchange="importFile(this,'t_imported','t_phone','t_name')">
+    <input id="t_amount" placeholder="Montant BIF" inputmode="decimal">
+    <input id="t_pin" placeholder="Votre PIN 4 chiffres" type="password" inputmode="numeric" maxlength="4">
+    <button onclick="sendTransfer()">Envoyer</button>
+    <div id="tMsg"></div>
+    <hr>
+    <p><small>Vous voulez vérifier avant d'envoyer ?</small></p>
+    <button class="ghost" onclick="showTab('attente')">Voir mes lignes en attente (Valider / Modifier / Annuler)</button>
+  </div>
+
+  <div id="tab-attente" class="card" style="display:none">
+    <h3>Transferts en attente (plusieurs lignes)</h3>
+    <p><small>1. Créez sans PIN → 2. Vérifiez numéro + montant → 3. Choisissez l'action dans la liste.</small></p>
+    <input id="p_phone" placeholder="Numero destinataire +257..." inputmode="tel" onblur="lookupName('p_phone','p_name')">
+    <div id="p_name"><small>Nom : —</small></div>
+    <div style="display:flex;gap:8px">
+      <button class="ghost" onclick="pickContact('p_phone')" style="flex:1">📇 Contacts</button>
+      <button class="ghost" onclick="loadRecents('p_recent','p_phone','p_name')" style="flex:1">↻ Récents</button>
+    </div>
+    <select id="p_recent" onchange="useRecent('p_recent','p_phone','p_name')"><option value="">— Choisir un contact récent —</option></select>
+    <button class="ghost" onclick="importContacts('p_imported','p_phone','p_name')">⬇ Importer tout le carnet</button>
+    <select id="p_imported" onchange="useRecent('p_imported','p_phone','p_name')"><option value="">— Carnet importé —</option></select>
+    <input type="file" id="p_file" accept=".vcf,.csv" style="font-size:13px" onchange="importFile(this,'p_imported','p_phone','p_name')">
+    <input id="p_amount" placeholder="Montant BIF" inputmode="decimal">
+    <button onclick="pendingCreate()">+ Mettre en attente (sans PIN)</button>
+    <div id="pMsg"></div>
+    <hr>
+    <button class="ghost" onclick="pendingList()">↻ Charger mes lignes en attente</button>
+    <div id="pendings"></div>
+  </div>
+
+  <div id="tab-orders" class="card" style="display:none">
+    <h3>Mes achats</h3>
+    <button class="ghost" onclick="loadOrders()">↻ Charger</button>
+    <div id="orders"></div>
+  </div>
+
+  <div id="tab-cashout" class="card" style="display:none">
+    <h3>Retrait cash chez agent</h3>
+    <p><small>1. Saisissez montant + PIN → 2. Montrez le code à l'agent → 3. Recevez le cash.</small></p>
+    <input id="w_amount" placeholder="Montant BIF" inputmode="decimal">
+    <input id="w_pin" placeholder="PIN 4 chiffres" type="password" inputmode="numeric" maxlength="4">
+    <button onclick="requestCashout()">Obtenir mon code retrait</button>
+    <div id="wMsg"></div>
+  </div>
+
+  <div id="tab-history" class="card" style="display:none">
+    <h3>Historique transactions</h3>
+    <button class="ghost" onclick="loadHistory()">Charger</button>
+    <div id="history"></div>
+  </div>
+
+  <div id="tab-admin" class="card" style="display:none">
+    <h3>Administration (compte ADMIN)</h3>
+    <p><small>Float, remboursement erreur numero, blocage compte, reversements operateurs.</small></p>
+    <button class="ghost" onclick="adminFloat()">Voir float cantonne</button>
+    <div id="aFloat"></div>
+    <h3>Plafond CRDB</h3>
+    <input id="a_ceiling" placeholder="Plafond BIF ex 1000000" inputmode="decimal">
+    <button onclick="adminSetFloat()">Definir plafond</button>
+    <div id="aSetMsg"></div>
+    <h3>Rembourser (erreur numero)</h3>
+    <input id="a_ref" placeholder="Reference transaction">
+    <input id="a_reason" placeholder="Motif ex erreur numero">
+    <button onclick="adminReverse()">Restituer au compte d'origine</button>
+    <div id="aRevMsg"></div>
+    <h3>Bloquer / Debloquer</h3>
+    <input id="a_phone" placeholder="Numero +257...">
+    <input id="a_breason" placeholder="Motif blocage">
+    <button onclick="adminBlock()">Bloquer</button>
+    <button class="ghost" onclick="adminUnblock()">Debloquer</button>
+    <div id="aBlockMsg"></div>
+    <h3>Reversements operateurs</h3>
+    <input id="a_ym" placeholder="AAAA-MM ex 2026-09" value="2026-09">
+    <button class="ghost" onclick="adminSettle()">Rapport mensuel</button>
+    <div id="aSettle"></div>
+    <h3>Toutes transactions + soldes</h3>
+    <input id="a_phone2" placeholder="Filtrer par numero (optionnel)" inputmode="tel">
+    <button class="ghost" onclick="adminAllTx()">Charger transactions</button>
+    <div id="aAllTx"></div>
+    <h3>🚨 Tentatives intrusion / vol (temps réel)</h3>
+    <p><small>Échecs login, OTP, PIN + comptes bloqués. Auto-refresh 30s.</small></p>
+    <select id="a_hours" onchange="adminSec()">
+      <option value="24">Dernières 24h</option>
+      <option value="6">Dernières 6h</option>
+      <option value="1">Dernière heure</option>
+      <option value="168">7 derniers jours</option>
+    </select>
+    <button class="ghost" onclick="adminSec()">↻ Charger alertes</button>
+    <button class="ghost" onclick="adminSecAuto()">▶ Auto 30s</button>
+    <div id="aSec"></div>
+    <div id="aSecList"></div>
+    <h3>🛠 Interrompre le service (réparation)</h3>
+    <p><small>Coupure avec durée déterminée + notification SMS auto aux clients.</small></p>
+    <select id="m_dur">
+      <option value="15">15 minutes</option>
+      <option value="30" selected>30 minutes</option>
+      <option value="60">1 heure</option>
+      <option value="120">2 heures</option>
+    </select>
+    <input id="m_reason" placeholder="Motif ex réparation serveur">
+    <button onclick="maintSet()">Interrompre + notifier clients</button>
+    <button class="ghost" onclick="maintClear()">Reprendre le service</button>
+    <div id="mMsg"></div>
+    <h3>*️⃣ Code USSD + menus (sans code source)</h3>
+    <p><small>Changez le code et les libellés. Visible aussi dans /admin/.</small></p>
+    <input id="u_code" placeholder="Code ex *300#">
+    <button class="ghost" onclick="ussdLoad()">↻ Charger menu actuel</button>
+    <div id="uMenu"></div>
+    <button onclick="ussdSave()">Enregistrer code + menus</button>
+    <div id="uMsg"></div>
+    <h3>🏦 API Banques (sans code source)</h3>
+    <p><small>URL, clés, secrets, adaptateur, statuts. Vide = garder le secret.</small></p>
+    <button class="ghost" onclick="bankCfgLoad()">↻ Charger configs banques</button>
+    <div id="bCfg"></div>
+    <button onclick="bankCfgSave()">Enregistrer banque</button>
+    <div id="bMsg"></div>
+    <p><small>Ajouter une nouvelle banque :</small></p>
+    <div style="display:flex;gap:6px">
+      <input id="b_new_code" placeholder="Code ex BCB" style="flex:1">
+      <input id="b_new_name" placeholder="Nom ex BCB" style="flex:2">
+    </div>
+    <input id="b_new_url" placeholder="URL API banque">
+    <input id="b_new_key" placeholder="Clé API">
+    <input id="b_new_sec" placeholder="Secret API" type="password">
+    <input id="b_new_wh" placeholder="Secret webhook" type="password">
+    <input id="b_new_ad" placeholder="Adaptateur ex apps.banking.adapters.crdb_adapter.CRDBAdapter">
+    <button class="ghost" onclick="bankCfgAdd()">+ Ajouter banque</button>
+    <h3>🤝 Entreprises e-money partenaires (sans code source)</h3>
+    <p><small>LumiCash, eNoti (Bancobu), eHela : URL, clés, merchant, webhook, adaptateur.</small></p>
+    <button class="ghost" onclick="provCfgLoad()">↻ Charger entreprises</button>
+    <div id="pCfg"></div>
+    <button onclick="provCfgSave()">Enregistrer entreprise</button>
+    <div id="pMsg2"></div>
+    <p><small>Ajouter une nouvelle entreprise :</small></p>
+    <div style="display:flex;gap:6px">
+      <input id="p_new_code" placeholder="Code ex LUMICASH" style="flex:1">
+      <input id="p_new_name" placeholder="Nom" style="flex:2">
+    </div>
+    <input id="p_new_url" placeholder="URL API entreprise">
+    <input id="p_new_key" placeholder="Clé API">
+    <input id="p_new_sec" placeholder="Secret API" type="password">
+    <input id="p_new_mid" placeholder="Merchant ID">
+    <input id="p_new_wh" placeholder="URL webhook">
+    <input id="p_new_ad" placeholder="Adaptateur ex apps.interop.adapters.lumicash_adapter.LumiCashAdapter">
+    <button class="ghost" onclick="provCfgAdd()">+ Ajouter entreprise</button>
+    <h3>📢 Notifier tous les clients (SMS)</h3>
+    <p><small>Diffusion aux numéros vérifiés actifs. Numéro vide = tous.</small></p>
+    <input id="n_phone" placeholder="Numéro précis +257... (vide = tous)" inputmode="tel">
+    <input id="n_msg" placeholder="Message ex Reprise du service, merci">
+    <button onclick="adminNotify()">Envoyer à tous</button>
+    <div id="nMsg"></div>
+  </div>
+</div>
+
+<script>
+var API = location.origin;
+function storeGet(k){try{return localStorage.getItem(k)||'';}catch(e){return (window._mem&&window._mem[k])||'';}}
+function storeSet(k,v){try{localStorage.setItem(k,v);}catch(e){window._mem=window._mem||{};window._mem[k]=v;}}
+var ACCESS = storeGet('ct_access');
+var scanner = null;
+function setZoom(z){try{document.documentElement.setAttribute('data-zoom',z);localStorage.setItem('ct_zoom',z);}catch(e){}}
+try{var _z=storeGet('ct_zoom');if(_z){document.documentElement.setAttribute('data-zoom',_z);var _zs=document.getElementById('zoomSel');if(_zs){_zs.value=_z;}}}catch(e){}
+function showTab(t){var tabs=['scan','manual','transfert','attente','cashout','orders','history','admin'];for(var i=0;i<tabs.length;i++){document.getElementById('tab-'+tabs[i]).style.display=(tabs[i]===t?'block':'none');}if(t==='attente'){pendingList();}}
+function doLogin(){
+  var btn=document.getElementById('loginBtn'), msg=document.getElementById('loginMsg');
+  var phone=document.getElementById('phone').value.replace(/^\s+|\s+$/g,'');
+  var pin=document.getElementById('pin').value.replace(/^\s+|\s+$/g,'');
+  if(pin.length!==4){msg.innerHTML='<p class=err>Entrez le PIN a 4 chiffres.</p>';return;}
+  btn.disabled=true;btn.textContent='Connexion...';msg.innerHTML='';
+  fetch(API+'/api/auth/login/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone_number:phone,pin:pin})}).then(function(r){return r.json();}).then(function(j){
+    if(j.success){ACCESS=j.access;storeSet('ct_access',ACCESS);storeSet('ct_refresh',j.refresh||'');storeSet('ct_role',(j.user&&j.user.role)||'');document.getElementById('loginCard').style.display='none';document.getElementById('app').style.display='block';loadWallet();}
+    else{msg.innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';}
+    btn.disabled=false;btn.textContent='Se connecter';
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion au serveur.</p>';btn.disabled=false;btn.textContent='Se connecter';});
+}
+function doLogout(){
+  var refresh=storeGet('ct_refresh');
+  if(refresh){fetch(API+'/api/auth/logout/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({refresh:refresh})}).catch(function(){});}
+  try{storeSet('ct_access','');storeSet('ct_refresh','');storeSet('ct_role','');}catch(e){}
+  ACCESS='';stopScan();
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginCard').style.display='block';
+  document.getElementById('pin').value='';
+  document.getElementById('loginMsg').innerHTML='<p class=ok>Deconnecte. Reconnectez-vous.</p>';
+  var btn=document.getElementById('loginBtn');btn.disabled=false;btn.textContent='Se connecter';
+}
+function loadWallet(){
+  var role=storeGet('ct_role');
+  if(role==='ADMIN'){
+    document.getElementById('balanceLabel').textContent='Solde système (total e-money)';
+    fetch(API+'/api/banking/float/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+      if(j.total_emoney!==undefined){document.getElementById('balance').textContent=Number(j.total_emoney).toLocaleString()+' BIF';document.getElementById('who').textContent='Clients '+(Number(j.total_clients||0).toLocaleString())+' • Agents '+(Number(j.total_agents||0).toLocaleString())+' • Admin '+(Number(j.total_admins||0).toLocaleString());}
+    }).catch(function(){});
+    return;
+  }
+  document.getElementById('balanceLabel').textContent='Solde disponible';
+  fetch(API+'/api/wallet/me/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(j.success){document.getElementById('balance').textContent=Number(j.wallet.balance).toLocaleString()+' BIF';document.getElementById('who').textContent=j.wallet.owner_name+' - '+j.wallet.owner_phone;}
+  }).catch(function(){});
+}
+function startScan(){
+  if(location.protocol!=='https:' && location.hostname!=='localhost' && location.hostname!=='127.0.0.1'){
+    document.getElementById('qrOut').innerHTML='<p class=err>Caméra bloquée : ouvrez en https ou localhost, ou utilisez image QR ci-dessous.</p>';
+  }
+  try{
+    if(typeof Html5Qrcode==='undefined'){document.getElementById('qrOut').innerHTML='<p class=err>Librairie scan indisponible. Utilisez image QR ou Manuel.</p>';return;}
+    scanner=new Html5Qrcode('reader');
+  }catch(e){document.getElementById('qrOut').innerHTML='<p class=err>Camera non supportee (PC sans caméra ?), utilisez image QR ou Manuel.</p>';return;}
+  scanner.start({facingMode:'environment'},{fps:10,qrbox:250},function(txt){
+    document.getElementById('qr_data').value=txt;
+    document.getElementById('qrOut').innerHTML='<div class=qr-ok>QR : '+txt+'</div>';
+    stopScan();
+  },function(){});
+}
+function stopScan(){if(scanner){try{scanner.stop();}catch(e){}scanner=null;}}
+function scanFile(input){
+  var f=input.files[0];if(!f){return;}
+  try{
+    var h=new Html5Qrcode('reader');
+    h.scanFile(f,true).then(function(txt){
+      document.getElementById('qr_data').value=txt;
+      document.getElementById('qrOut').innerHTML='<div class=qr-ok>QR : '+txt+'</div>';
+    }).catch(function(){document.getElementById('qrOut').innerHTML='<p class=err>QR illisible sur cette image.</p>';});
+  }catch(e){document.getElementById('qrOut').innerHTML='<p class=err>Scan fichier indisponible.</p>';}
+}
+function showMyQR(){
+  var a=(document.getElementById('qr_amount_first').value||'').replace(/^\s+|\s+$/g,'');
+  if(!a){document.getElementById('myqr').innerHTML='<p class=err>Saisissez d abord le montant du transfert.</p>';return;}
+  document.getElementById('myqr').innerHTML='Génération du QR...';
+  fetch(API+'/api/wallet/qr-amount/?amount='+encodeURIComponent(a),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){
+    if(!r.ok){throw 0;}
+    var qd=r.headers.get('X-QR-Data')||'';
+    return r.blob().then(function(b){return {b:b,qd:qd};});
+  }).then(function(o){
+    var url=URL.createObjectURL(o.b);
+    document.getElementById('myqr').innerHTML='<img src="'+url+'" style="max-width:260px;width:100%;background:#fff;padding:8px;border-radius:10px"><div class=qr-ok>'+o.qd+'</div><p><small>Faites scanner ce QR : montant intégré, reste le PIN.</small></p>';
+  }).catch(function(){document.getElementById('myqr').innerHTML='<p class=err>Montant invalide ou déconnecté.</p>';});
+}
+function showMyQRAmount(){
+  var a=(document.getElementById('qr_amount').value||'').replace(/^\s+|\s+$/g,'');
+  if(!a){document.getElementById('myqramt').innerHTML='<p class=err>Entrez le montant.</p>';return;}
+  fetch(API+'/api/wallet/qr-amount/?amount='+encodeURIComponent(a),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){
+    if(!r.ok){throw 0;}
+    var qd=r.headers.get('X-QR-Data')||'';
+    return r.blob().then(function(b){return {b:b,qd:qd};});
+  }).then(function(o){
+    var url=URL.createObjectURL(o.b);
+    document.getElementById('myqramt').innerHTML='<img src="'+url+'" style="max-width:260px;width:100%;background:#fff;padding:8px;border-radius:10px"><div class=qr-ok>'+o.qd+'</div><p><small>Montrez ce QR : le payeur scanne, montant auto, reste le PIN.</small></p>';
+  }).catch(function(){document.getElementById('myqramt').innerHTML='<p class=err>Montant invalide ou déconnecté.</p>';});
+}
+function uuid(){return 'xxxxxxxx-xxxx'.replace(/x/g,function(){return Math.floor(Math.random()*16).toString(16);})+String(new Date().getTime());}
+function payAuto(){
+  var qr_data=document.getElementById('qr_data').value.replace(/^\s+|\s+$/g,'');
+  var pin=document.getElementById('paypin').value.replace(/^\s+|\s+$/g,'');
+  var amount=document.getElementById('amount').value.replace(/^\s+|\s+$/g,'');
+  var body={qr_data:qr_data,pin:pin,idempotency_key:uuid()};
+  if(amount){body.amount=amount;}
+  document.getElementById('payMsg').innerHTML='Paiement en cours...';
+  fetch(API+'/api/shop/scan-pay/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('payMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    loadWallet();
+  }).catch(function(){document.getElementById('payMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function payManual(){
+  var merchant_code=document.getElementById('m_merchant').value;
+  var sku=document.getElementById('m_sku').value;
+  var qty=parseInt(document.getElementById('m_qty').value||'1',10);
+  var pin=document.getElementById('m_pin').value;
+  fetch(API+'/api/shop/orders/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({merchant_code:merchant_code,items:[{sku:sku,qty:qty}]})}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){document.getElementById('mMsg').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return null;}
+    return fetch(API+'/api/shop/scan-pay/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({qr_data:j.order.qr_data,pin:pin,idempotency_key:uuid()})}).then(function(r){return r.json();});
+  }).then(function(j){
+    if(j){document.getElementById('mMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';loadWallet();}
+  }).catch(function(){document.getElementById('mMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function loadOrders(){
+  fetch(API+'/api/shop/my-orders/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var list=j.results||j, html='';
+    if(list instanceof Array){
+      for(var i=0;i<list.length;i++){var o=list[i];html+='<p>'+o.order_number+' - '+o.total+' BIF - '+o.status+'</p>';}
+      document.getElementById('orders').innerHTML=html||'Aucun achat';
+    }else{document.getElementById('orders').innerHTML='Aucun achat';}
+  }).catch(function(){});
+}
+function sendTransfer(){
+  var phone=document.getElementById('t_phone').value.replace(/^\s+|\s+$/g,'');
+  var amount=document.getElementById('t_amount').value.replace(/^\s+|\s+$/g,'');
+  var pin=document.getElementById('t_pin').value.replace(/^\s+|\s+$/g,'');
+  if(pin.length!==4){document.getElementById('tMsg').innerHTML='<p class=err>Entrez votre PIN a 4 chiffres.</p>';return;}
+  document.getElementById('tMsg').innerHTML='Envoi en cours...';
+  fetch(API+'/api/transfer/send/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({receiver_phone:phone,amount:amount,pin:pin})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('tMsg').innerHTML=j.success?'<p class=ok>Envoye : '+j.transaction.amount+' BIF (frais '+j.transaction.fee+').</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    loadWallet();
+  }).catch(function(){document.getElementById('tMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function lookupName(phoneId,nameId){
+  var ph=document.getElementById(phoneId).value.replace(/^\s+|\s+$/g,'');
+  if(!ph){return;}
+  fetch(API+'/api/auth/contacts/lookup/?phone='+encodeURIComponent(ph),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById(nameId).innerHTML=j.registered?'<p class=ok>Nom : <b>'+j.full_name+'</b> ('+j.phone+')</p>':'<p class=err>Numéro non inscrit Cash Tel ('+j.phone+')</p>';
+  }).catch(function(){});
+}
+function pickContact(phoneId){
+  try{
+    if(navigator.contacts && navigator.contacts.select){
+      navigator.contacts.select(['tel','name'],{multiple:false}).then(function(list){
+        if(list && list[0] && list[0].tel && list[0].tel[0]){
+          document.getElementById(phoneId).value=list[0].tel[0];
+          var nid=(phoneId==='t_phone')?'t_name':'p_name';
+          lookupName(phoneId,nid);
+        }
+      }).catch(function(){alert('Sélection annulée. Saisie manuelle possible.');});
+      return;
+    }
+  }catch(e){}
+  alert('Carnet non supporté sur ce téléphone : saisissez le numéro ou utilisez Récents.');
+}
+function loadRecents(selId,phoneId,nameId){
+  fetch(API+'/api/auth/contacts/recent/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var sel=document.getElementById(selId);sel.innerHTML='<option value="">— Choisir un contact récent —</option>';
+    for(var i=0;i<j.recents.length;i++){var c=j.recents[i];var o=document.createElement('option');o.value=c.phone;o.text=c.full_name+' — '+c.phone;sel.appendChild(o);}
+    if(!j.recents.length){sel.innerHTML='<option value="">Aucun récent</option>';}
+  }).catch(function(){});
+}
+function useRecent(selId,phoneId,nameId){
+  var v=document.getElementById(selId).value;if(v){document.getElementById(phoneId).value=v;lookupName(phoneId,nameId);}
+}
+function importContacts(selId,phoneId,nameId){
+  var sel=document.getElementById(selId);
+  function sendToServer(list){
+    fetch(API+'/api/auth/contacts/import/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({contacts:list})}).then(function(r){return r.json();}).then(function(j){
+      if(!j.success){alert('Import échoué');return;}
+      sel.innerHTML='<option value="">— Carnet importé ('+j.registered+' inscrits / '+j.total+') —</option>';
+      try{localStorage.setItem('ct_book',JSON.stringify(j.contacts));}catch(e){}
+      for(var i=0;i<j.contacts.length;i++){var c=j.contacts[i];var o=document.createElement('option');o.value=c.phone;var label=(c.local_name||'')+' — '+c.phone+(c.registered?' ✓ '+c.cashTel_name:' (non inscrit)');o.text=label;if(!c.registered){o.disabled=true;}sel.appendChild(o);}
+      alert('Carnet : '+j.total+' numéros, '+j.registered+' inscrits Cash Tel.');
+    }).catch(function(){alert('Pas de connexion.');});
+  }
+  try{
+    if(navigator.contacts && navigator.contacts.select){
+      navigator.contacts.select(['name','tel'],{multiple:true}).then(function(l){
+        var list=[];for(var i=0;i<l.length;i++){var tels=[];for(var k=0;k<(l[i].tel||[]).length;k++){tels.push(l[i].tel[k]);}list.push({name:(l[i].name||[''])[0]||'',phones:tels});}
+        if(!list.length){alert('Aucun contact sélectionné.');return;}
+        sendToServer(list);
+      }).catch(function(){alert('Sélection annulée.');});
+      return;
+    }
+  }catch(e){}
+  // Repli : restaure le dernier import ou utilisez le fichier .vcf/.csv ci-dessous
+  try{var old=JSON.parse(localStorage.getItem('ct_book')||'[]');if(old.length){sel.innerHTML='<option value="">— Carnet importé —</option>';for(var i=0;i<old.length;i++){var c=old[i];var o=document.createElement('option');o.value=c.phone;o.text=(c.local_name||'')+' — '+c.phone+(c.registered?' ✓':'');if(!c.registered){o.disabled=true;}sel.appendChild(o);}return;}}catch(e2){}
+  alert('Carnet non supporté sur ce téléphone : utilisez le fichier .vcf/.csv.');
+}
+function importFile(input,selId,phoneId,nameId){
+  var f=input.files[0];if(!f){return;}
+  var rd=new FileReader();
+  rd.onload=function(){var txt=rd.result;var phones=[];var re=/(\+?257\d{8}|0\d{7,9}|6\d{7}|7\d{7})/g;var m;while((m=re.exec(txt))!==null){phones.push(m[1]);}
+    if(!phones.length){alert('Aucun numéro trouvé dans le fichier.');return;}
+    var uniq={},list=[];for(var i=0;i<phones.length;i++){if(!uniq[phones[i]]){uniq[phones[i]]=1;list.push({name:f.name,phones:[phones[i]]});}}
+    fetch(API+'/api/auth/contacts/import/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({contacts:list})}).then(function(r){return r.json();}).then(function(j){
+      var sel=document.getElementById(selId);sel.innerHTML='<option value="">— Fichier ('+j.registered+' inscrits) —</option>';
+      for(var k=0;k<j.contacts.length;k++){var c=j.contacts[k];var o=document.createElement('option');o.value=c.phone;o.text=(c.local_name||'fichier')+' — '+c.phone+(c.registered?' ✓ '+c.cashTel_name:'');if(!c.registered){o.disabled=true;}sel.appendChild(o);}
+    });};
+  rd.readAsText(f);
+}
+function pendingCreate(){
+  var phone=document.getElementById('p_phone').value.replace(/^\s+|\s+$/g,'');
+  var amount=document.getElementById('p_amount').value.replace(/^\s+|\s+$/g,'');
+  document.getElementById('pMsg').innerHTML='Création...';
+  fetch(API+'/api/transfer/pending/create/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({receiver_phone:phone,amount:amount})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('pMsg').innerHTML=j.success?'<p class=ok>Mis en attente : '+j.transaction.amount+' BIF vers '+j.transaction.receiver_phone+'.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){document.getElementById('p_phone').value='';document.getElementById('p_amount').value='';pendingList();}
+  }).catch(function(){document.getElementById('pMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function pendingList(){
+  fetch(API+'/api/transfer/pending/list/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var list=j.results||j, html='';
+    if(list instanceof Array && list.length){
+      for(var i=0;i<list.length;i++){var t=list[i];var ref=t.reference;
+        html+='<div class="card" style="margin:8px 0;border:1px solid #333"><p><b>'+t.amount+' BIF</b> vers <b>'+t.receiver_phone+'</b><br><small>Réf '+ref+' — frais '+t.fee+'</small></p>'
+        +'<label><small>Action pour cette ligne :</small></label>'
+        +'<select id="sel-'+ref+'" onchange="pendingAction(\''+ref+'\')">'
+        +'<option value="">— Choisir une action —</option>'
+        +'<option value="valider">Valider (envoyer, avec PIN)</option>'
+        +'<option value="modifier">Modifier (numéro / montant)</option>'
+        +'<option value="annuler">Annuler (sans débit)</option>'
+        +'</select>'
+        +'<div id="zone-'+ref+'"></div></div>';}
+      document.getElementById('pendings').innerHTML=html;
+    }else{document.getElementById('pendings').innerHTML='Aucune ligne en attente';}
+  }).catch(function(){document.getElementById('pendings').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function pendingAction(ref){
+  var sel=document.getElementById('sel-'+ref);var zone=document.getElementById('zone-'+ref);var v=sel.value;
+  if(v==='valider'){zone.innerHTML='<input id="pin-'+ref+'" placeholder="PIN 4 chiffres" type="password" maxlength="4" inputmode="numeric"><button onclick="pendingValidate(\''+ref+'\')">Confirmer envoi</button><div id="msg-'+ref+'"></div>';}
+  else if(v==='modifier'){zone.innerHTML='<input id="mph-'+ref+'" placeholder="Nouveau numéro (vide = garder)" inputmode="tel"><input id="mamt-'+ref+'" placeholder="Nouveau montant (vide = garder)" inputmode="decimal"><button onclick="pendingModify(\''+ref+'\')">Appliquer modification</button><div id="msg-'+ref+'"></div>';}
+  else if(v==='annuler'){zone.innerHTML='<input id="mrs-'+ref+'" placeholder="Motif (optionnel)"><button onclick="pendingCancel(\''+ref+'\')">Confirmer annulation</button><div id="msg-'+ref+'"></div>';}
+  else{zone.innerHTML='';}
+}
+function pendingValidate(ref){
+  var pin=(document.getElementById('pin-'+ref).value||'').replace(/^\s+|\s+$/g,'');
+  document.getElementById('msg-'+ref).innerHTML='Validation...';
+  fetch(API+'/api/transfer/pending/validate/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({reference:ref,pin:pin})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('msg-'+ref).innerHTML=j.success?'<p class=ok>Envoyé.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){pendingList();loadWallet();}
+  }).catch(function(){document.getElementById('msg-'+ref).innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function pendingModify(ref){
+  var body={reference:ref};
+  var np=(document.getElementById('mph-'+ref).value||'').replace(/^\s+|\s+$/g,'');
+  var na=(document.getElementById('mamt-'+ref).value||'').replace(/^\s+|\s+$/g,'');
+  if(np){body.receiver_phone=np;} if(na){body.amount=na;}
+  document.getElementById('msg-'+ref).innerHTML='Modification...';
+  fetch(API+'/api/transfer/pending/modify/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('msg-'+ref).innerHTML=j.success?'<p class=ok>Modifié.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){pendingList();}
+  }).catch(function(){document.getElementById('msg-'+ref).innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function pendingCancel(ref){
+  var reason=(document.getElementById('mrs-'+ref).value||'');
+  document.getElementById('msg-'+ref).innerHTML='Annulation...';
+  fetch(API+'/api/transfer/pending/cancel/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({reference:ref,reason:reason})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('msg-'+ref).innerHTML=j.success?'<p class=ok>Annulé.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){pendingList();}
+  }).catch(function(){document.getElementById('msg-'+ref).innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function requestCashout(){  var amount=document.getElementById('w_amount').value.replace(/^\s+|\s+$/g,'');
+  var pin2=document.getElementById('w_pin').value.replace(/^\s+|\s+$/g,'');
+  document.getElementById('wMsg').innerHTML='Generation du code...';
+  fetch(API+'/api/agent/withdraw-request/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({amount:amount,pin:pin2,idempotency_key:uuid()})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('wMsg').innerHTML=j.success?'<div class=qr-ok style="font-size:28px;text-align:center;letter-spacing:6px">'+j.code+'</div><p class=ok>'+j.amount+' BIF (frais '+j.fee+'). Montrez ce code a l agent.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){document.getElementById('wMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function loadHistory(){
+  fetch(API+'/api/transactions/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var list=j.results||j, html='';
+    if(list instanceof Array){
+      for(var i=0;i<list.length;i++){var t=list[i];html+='<p>'+(t.created_at||'').substring(0,16)+' - '+t.type_display+' - '+t.amount+' BIF (frais '+t.fee+') - '+t.status_display+'<br><small>'+(t.description||'')+'</small></p>';}
+      document.getElementById('history').innerHTML=html||'Aucune transaction';
+    }else{document.getElementById('history').innerHTML='Aucune transaction';}
+  }).catch(function(){document.getElementById('history').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminFloat(){
+  fetch(API+'/api/banking/float/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var html='';
+    if(j.success){
+      html='<p>Total e-money : <b>'+j.total_emoney+'</b> / Plafond : <b>'+j.ceiling+'</b> / Dispo : <b>'+j.available+'</b> ('+(j.healthy?'OK':'DEPASSE')+')</p>';
+      html+='<p><small>Clients <b>'+(j.total_clients||0)+'</b> • Agents <b>'+(j.total_agents||0)+'</b> • Admin <b>'+(j.total_admins||0)+'</b></small></p>';
+      for(var i=0;i<j.plafonds.length;i++){var p=j.plafonds[i];html+='<p>Banque <b>'+p.bank+'</b> : solde banque <b>'+(p.solde_banque||'indisponible')+'</b> BIF / plafond <b>'+p.ceiling+'</b> BIF</p>';}
+    }else{html='<p class=err>'+(j.error||'Echec')+'</p>';}
+    document.getElementById('aFloat').innerHTML=html;
+  }).catch(function(){});
+}
+function adminSetFloat(){
+  var c=document.getElementById('a_ceiling').value.replace(/^\s+|\s+$/g,'');
+  fetch(API+'/api/banking/float/set/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({bank_code:'CRDB',ceiling:c})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('aSetMsg').innerHTML=j.success?'<p class=ok>Plafond : '+j.ceiling+' BIF</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){});
+}
+function adminReverse(){
+  var ref=document.getElementById('a_ref').value.replace(/^\s+|\s+$/g,'');
+  var reason=document.getElementById('a_reason').value;
+  fetch(API+'/api/transfer/reverse/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({reference:ref,reason:reason})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('aRevMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){});
+}
+function adminBlock(){
+  var p=document.getElementById('a_phone').value.replace(/^\s+|\s+$/g,'');
+  var reason=document.getElementById('a_breason').value;
+  fetch(API+'/api/auth/block/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({phone_number:p,reason:reason})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('aBlockMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){});
+}
+function adminUnblock(){
+  var p=document.getElementById('a_phone').value.replace(/^\s+|\s+$/g,'');
+  fetch(API+'/api/auth/unblock/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({phone_number:p})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('aBlockMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){});
+}
+function adminSettle(){
+  var ym=document.getElementById('a_ym').value.split('-');
+  fetch(API+'/api/interop/settlement/?year='+ym[0]+'&month='+parseInt(ym[1],10),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var html='';
+    if(j.success){for(var i=0;i<j.rows.length;i++){var r2=j.rows[i];html+='<p><b>'+r2.provider__code+'</b> : '+r2.nb+' transferts, '+r2.montant+' BIF, frais '+r2.frais+' (operateur '+r2.part_operateur+' / plateforme '+r2.part_plateforme+' / agents '+r2.part_agents+')</p>';}}
+    document.getElementById('aSettle').innerHTML=html||'Rien ce mois';
+  }).catch(function(){});
+}
+function adminAllTx(){
+  var p=document.getElementById('a_phone2').value.replace(/^\s+|\s+$/g,'');
+  var url=API+'/api/transactions/all/'+(p?'?phone='+encodeURIComponent(p):'');
+  fetch(url,{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var list=j.results||j, html='';
+    if(list instanceof Array){
+      for(var i=0;i<list.length && i<50;i++){var t=list[i];html+='<p>'+(t.created_at||'').substring(0,16)+' - '+t.type_display+' - '+t.amount+' BIF<br><small>De '+t.sender_phone+' (solde '+t.sender_balance+') vers '+t.receiver_phone+' (solde '+t.receiver_balance+') - '+t.status_display+'</small></p>';}
+      document.getElementById('aAllTx').innerHTML=html||'Aucune transaction';
+    }else{document.getElementById('aAllTx').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';}
+  }).catch(function(){document.getElementById('aAllTx').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+var _secTimer=null;
+function adminSec(){
+  var h=document.getElementById('a_hours').value||'24';
+  fetch(API+'/api/auth/security/summary/?hours='+h,{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){document.getElementById('aSec').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return;}
+    var col=j.level==='OK'?'ok':(j.level==='WARNING'?'err':'err');
+    var html='<p class='+col+'><b>'+j.level+'</b> : '+j.total_suspect+' suspects / '+j.blocked+' bloqués ('+j.hours+'h)</p>';
+    for(var i=0;i<j.by_action.length;i++){html+='<p>'+j.by_action[i].action+' : <b>'+j.by_action[i].nb+'</b></p>';}
+    if(j.top_phones.length){html+='<p><small>Top numéros :</small></p>';for(var k=0;k<j.top_phones.length;k++){html+='<p><small>'+(j.top_phones[k].user__phone_number||'?')+' : '+j.top_phones[k].nb+'</small></p>';}}
+    document.getElementById('aSec').innerHTML=html;
+  }).catch(function(){});
+  fetch(API+'/api/auth/security/events/?hours='+h,{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    var html='';
+    if(j.success){for(var i=0;i<j.events.length && i<30;i++){var e=j.events[i];html+='<p>🚨 '+(e.at||'').substring(0,16)+' - <b>'+e.action+'</b> - '+(e.phone||'?')+' <small>'+(e.ip||'')+'</small></p>';}}
+    document.getElementById('aSecList').innerHTML=html||'Aucun événement';
+  }).catch(function(){});
+}
+function adminSecAuto(){
+  adminSec();
+  if(_secTimer){clearInterval(_secTimer);_secTimer=null;}
+  else{_secTimer=setInterval(adminSec,30000);}
+}
+function maintSet(){
+  var mins=document.getElementById('m_dur').value;
+  var reason=document.getElementById('m_reason').value;
+  document.getElementById('mMsg').innerHTML='Interruption... + notification SMS clients';
+  fetch(API+'/api/auth/maintenance/set/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({duration_minutes:parseInt(mins,10),reason:reason})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('mMsg').innerHTML=j.success?'<p class=ok>'+j.message+' SMS envoyés.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    maintCheck();
+  }).catch(function(){document.getElementById('mMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function maintClear(){
+  fetch(API+'/api/auth/maintenance/clear/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('mMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    maintCheck();
+  }).catch(function(){});
+}
+var _ussdCache=[];
+function ussdLoad(){
+  fetch(API+'/api/interop/ussd-menu/').then(function(r){return r.json();}).then(function(j){
+    if(!j.success){return;}
+    document.getElementById('u_code').value=j.short_code||'*300#';
+    _ussdCache=j.options||[];
+    var html='';
+    for(var i=0;i<_ussdCache.length;i++){var o=_ussdCache[i];
+      html+='<div style="display:flex;gap:6px;align-items:center"><span style="min-width:90px"><small>'+o.parent+' '+o.key+'</small></span>'
+      +'<input id="ul-'+i+'" value="'+o.label+'" style="flex:2">'
+      +'<select id="ue-'+i+'" style="flex:1"><option value="1"'+(o.enabled?' selected':'')+'>ON</option><option value="0"'+(o.enabled?'':' selected')+'>OFF</option></select></div>';}
+    document.getElementById('uMenu').innerHTML=html||'Aucune option';
+  }).catch(function(){});
+}
+function ussdSave(){
+  var opts=[];
+  for(var i=0;i<_ussdCache.length;i++){
+    var lin=document.getElementById('ul-'+i), en=document.getElementById('ue-'+i);
+    if(!lin){continue;}
+    opts.push({key:_ussdCache[i].key,label:lin.value,enabled:(en.value==='1')});
+  }
+  fetch(API+'/api/interop/ussd-menu/update/',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({short_code:document.getElementById('u_code').value,options:opts})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('uMsg').innerHTML=j.success?'<p class=ok>'+j.message+' Nouveau code : '+j.short_code+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){document.getElementById('uMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+var _bankCache=[];
+function bankCfgLoad(){
+  fetch(API+'/api/banking/partners-config/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){document.getElementById('bCfg').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return;}
+    _bankCache=j.banks||[];
+    var html='<select id="b_sel" onchange="bankCfgFill()">';
+    for(var i=0;i<_bankCache.length;i++){html+='<option value="'+i+'">'+_bankCache[i].code+' — '+_bankCache[i].name+' ('+_bankCache[i].status+')</option>';}
+    html+='</select><div id="b_form"></div>';
+    document.getElementById('bCfg').innerHTML=html;
+    bankCfgFill();
+  }).catch(function(){document.getElementById('bCfg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function bankCfgFill(){
+  var i=parseInt((document.getElementById('b_sel')||{}).value||'0',10);
+  var b=_bankCache[i];if(!b){return;}
+  document.getElementById('b_form').innerHTML=
+    '<input id="b_url" placeholder="URL API" value="'+(b.api_base_url||'')+'">'
+    +'<input id="b_key" placeholder="Clé API (actuelle '+b.api_key_masked+') — vide = garder">'
+    +'<input id="b_sec" placeholder="Secret API — vide = garder" type="password">'
+    +'<input id="b_wh" placeholder="Secret webhook — vide = garder" type="password">'
+    +'<input id="b_ad" placeholder="Adaptateur" value="'+(b.adapter_class||'')+'">'
+    +'<select id="b_st"><option'+(b.status==='ACTIVE'?' selected':'')+'>ACTIVE</option><option'+(b.status==='TESTING'?' selected':'')+'>TESTING</option><option'+(b.status==='INACTIVE'?' selected':'')+'>INACTIVE</option></select>';
+}
+function bankCfgSave(){
+  var i=parseInt((document.getElementById('b_sel')||{}).value||'0',10);
+  var b=_bankCache[i];if(!b){return;}
+  var body={code:b.code,api_base_url:document.getElementById('b_url').value,
+    api_key:document.getElementById('b_key').value,api_secret:document.getElementById('b_sec').value,
+    webhook_secret:document.getElementById('b_wh').value,adapter_class:document.getElementById('b_ad').value,
+    status:document.getElementById('b_st').value};
+  fetch(API+'/api/banking/partners-config/',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('bMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){bankCfgLoad();}
+  }).catch(function(){document.getElementById('bMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function bankCfgAdd(){
+  var body={code:document.getElementById('b_new_code').value,name:document.getElementById('b_new_name').value,
+    api_base_url:document.getElementById('b_new_url').value,api_key:document.getElementById('b_new_key').value,
+    api_secret:document.getElementById('b_new_sec').value,webhook_secret:document.getElementById('b_new_wh').value,
+    adapter_class:document.getElementById('b_new_ad').value};
+  fetch(API+'/api/banking/partners-config/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('bMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){bankCfgLoad();}
+  }).catch(function(){});
+}
+var _provCache=[];
+function provCfgLoad(){
+  fetch(API+'/api/interop/providers-config/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){document.getElementById('pCfg').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return;}
+    _provCache=j.providers||[];
+    var html='<select id="p_sel" onchange="provCfgFill()">';
+    for(var i=0;i<_provCache.length;i++){html+='<option value="'+i+'">'+_provCache[i].code+' — '+_provCache[i].name+' ('+_provCache[i].status+')</option>';}
+    html+='</select><div id="p_form"></div>';
+    document.getElementById('pCfg').innerHTML=html;
+    provCfgFill();
+  }).catch(function(){document.getElementById('pCfg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function provCfgFill(){
+  var i=parseInt((document.getElementById('p_sel')||{}).value||'0',10);
+  var p=_provCache[i];if(!p){return;}
+  document.getElementById('p_form').innerHTML=
+    '<input id="p_url" placeholder="URL API" value="'+(p.api_base_url||'')+'">'
+    +'<input id="p_key" placeholder="Clé API (actuelle '+p.api_key_masked+') — vide = garder">'
+    +'<input id="p_sec" placeholder="Secret API — vide = garder" type="password">'
+    +'<input id="p_mid" placeholder="Merchant ID" value="'+(p.merchant_id||'')+'">'
+    +'<input id="p_wh" placeholder="URL webhook" value="'+(p.webhook_url||'')+'">'
+    +'<input id="p_ad" placeholder="Adaptateur" value="'+(p.adapter_class||'')+'">'
+    +'<select id="p_st"><option'+(p.status==='ACTIVE'?' selected':'')+'>ACTIVE</option><option'+(p.status==='TESTING'?' selected':'')+'>TESTING</option><option'+(p.status==='INACTIVE'?' selected':'')+'>INACTIVE</option></select>';
+}
+function provCfgSave(){
+  var i=parseInt((document.getElementById('p_sel')||{}).value||'0',10);
+  var p=_provCache[i];if(!p){return;}
+  var body={code:p.code,api_base_url:document.getElementById('p_url').value,
+    api_key:document.getElementById('p_key').value,api_secret:document.getElementById('p_sec').value,
+    merchant_id:document.getElementById('p_mid').value,webhook_url:document.getElementById('p_wh').value,
+    adapter_class:document.getElementById('p_ad').value,status:document.getElementById('p_st').value};
+  fetch(API+'/api/interop/providers-config/',{method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('pMsg2').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){provCfgLoad();}
+  }).catch(function(){document.getElementById('pMsg2').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function provCfgAdd(){
+  var body={code:document.getElementById('p_new_code').value,name:document.getElementById('p_new_name').value,
+    api_base_url:document.getElementById('p_new_url').value,api_key:document.getElementById('p_new_key').value,
+    api_secret:document.getElementById('p_new_sec').value,merchant_id:document.getElementById('p_new_mid').value,
+    webhook_url:document.getElementById('p_new_wh').value,adapter_class:document.getElementById('p_new_ad').value};
+  fetch(API+'/api/interop/providers-config/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('pMsg2').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){provCfgLoad();}
+  }).catch(function(){});
+}
+function adminNotify(){
+  var msg=document.getElementById('n_msg').value;
+  var ph=document.getElementById('n_phone').value.replace(/^\s+|\s+$/g,'');
+  document.getElementById('nMsg').innerHTML='Envoi...';
+  fetch(API+'/api/auth/notify/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({message:msg,phone_number:ph})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('nMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){document.getElementById('nMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function maintCheck(){
+  fetch(API+'/api/auth/maintenance/status/').then(function(r){return r.json();}).then(function(j){
+    var b=document.getElementById('maintBanner');
+    if(j.active){b.style.display='block';b.textContent='🛠 Service interrompu : '+(j.reason||'réparation')+' — reprise dans '+j.remaining_minutes+' min.';}
+    else{b.style.display='none';}
+  }).catch(function(){});
+}
+setInterval(maintCheck,60000);
+try{
+  var lb=document.getElementById('loginBtn');
+  if(lb){if(lb.addEventListener){lb.addEventListener('click',doLogin);}else if(lb.attachEvent){lb.attachEvent('onclick',doLogin);}}
+  var _ph=document.getElementById('phone'), _pp=document.getElementById('pin');
+  function _enterLogin(e){if(e&&(e.key==='Enter'||e.keyCode===13)){e.preventDefault();doLogin();}}
+  if(_ph){if(_ph.addEventListener){_ph.addEventListener('keydown',_enterLogin);}else if(_ph.attachEvent){_ph.attachEvent('onkeydown',_enterLogin);}}
+  if(_pp){if(_pp.addEventListener){_pp.addEventListener('keydown',_enterLogin);}else if(_pp.attachEvent){_pp.attachEvent('onkeydown',_enterLogin);}}
+  document.getElementById('jsok').textContent='Page prete - entrez PIN puis Se connecter.';
+  if(ACCESS){document.getElementById('loginCard').style.display='none';document.getElementById('app').style.display='block';loadWallet();}
+  maintCheck();
+}catch(e){try{document.getElementById('loginMsg').innerHTML='<p class=err>Erreur page, rechargez.</p>';}catch(e2){}}
+</script>
+</body>
+</html>
