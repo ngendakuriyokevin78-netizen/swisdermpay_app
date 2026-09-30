@@ -10,6 +10,7 @@ import uuid
 from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from apps.transactions.money import fmt_bif as _b
 from django.utils import timezone
 
 logger = logging.getLogger('apps.banking.services')
@@ -43,7 +44,7 @@ def bank_deposit(user, bank_code: str, account_number: str, amount: Decimal):
         raise ValidationError("Banque inactive.")
     if amount < bank.min_transfer or amount > bank.max_transfer:
         raise ValidationError(
-            f"Montant hors limites : {bank.min_transfer:,.0f}–{bank.max_transfer:,.0f} BIF.")
+            f"Montant hors limites : {_b(bank.min_transfer)}–{_b(bank.max_transfer)}.")
     from .float_guard import require_float
     require_float(amount, f"dépôt {bank.code}")
 
@@ -81,7 +82,7 @@ def bank_deposit(user, bank_code: str, account_number: str, amount: Decimal):
     transfer.status = BankTransfer.Status.COMPLETED
     transfer.completed_at = timezone.now()
     transfer.save()
-    SMSService.send_async(user.phone_number, f"Swisderm Pay: Dépôt {bank.code} {amount:,.0f} BIF reçu.")
+    SMSService.send_async(user.phone_number, f"Swisderm Pay: Dépôt {bank.code} {_b(amount)} reçu.")
     AuditService.log(user=user, action='BANK_DEPOSIT', details={'bank': bank.code, 'amount': str(amount)})
     return transfer
 
@@ -141,7 +142,7 @@ def bank_withdraw(user, bank_code: str, account_number: str, amount: Decimal, pi
     transfer.status = BankTransfer.Status.COMPLETED
     transfer.completed_at = timezone.now()
     transfer.save()
-    SMSService.send_async(user.phone_number, f"Swisderm Pay: Retrait {bank.code} {amount:,.0f} BIF envoyé.")
+    SMSService.send_async(user.phone_number, f"Swisderm Pay: Retrait {bank.code} {_b(amount)} envoyé.")
     AuditService.log(user=user, action='BANK_WITHDRAW', details={'bank': bank.code, 'amount': str(amount)})
     return transfer
 

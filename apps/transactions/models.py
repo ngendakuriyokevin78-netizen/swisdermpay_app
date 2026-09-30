@@ -6,6 +6,7 @@ Modèles du module Transactions Cash Tel.
 import uuid
 from django.db import models
 from django.conf import settings
+from .money import fmt_bif as _b
 
 
 # ── Table des Frais ───────────────────────────────────────────────────────────
@@ -22,15 +23,15 @@ class Fee(models.Model):
         PERCENTAGE = 'PERCENTAGE', 'Pourcentage (%)'
 
     min_amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant minimum (BIF)'
     )
     max_amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant maximum (BIF)'
     )
     fee_value = models.DecimalField(
-        max_digits=10, decimal_places=2,
+        max_digits=12, decimal_places=3,
         verbose_name='Valeur des frais'
     )
     fee_type = models.CharField(
@@ -47,8 +48,8 @@ class Fee(models.Model):
 
     def __str__(self):
         if self.fee_type == self.FeeType.FIXED:
-            return f"{self.min_amount:,.0f}–{self.max_amount:,.0f} BIF → {self.fee_value:,.0f} BIF fixe"
-        return f"{self.min_amount:,.0f}–{self.max_amount:,.0f} BIF → {self.fee_value}%"
+            return f"{_b(self.min_amount)}–{_b(self.max_amount)} → {_b(self.fee_value)} fixe"
+        return f"{_b(self.min_amount)}–{_b(self.max_amount)} → {self.fee_value}%"
 
 
 # ── Transaction ───────────────────────────────────────────────────────────────
@@ -94,11 +95,11 @@ class Transaction(models.Model):
 
     # ── Montants ──────────────────────────────────────────────────────────────
     amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant (BIF)'
     )
     fee = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Frais (BIF)'
     )
 
@@ -134,7 +135,7 @@ class Transaction(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.get_transaction_type_display()}] {self.reference} — {self.amount:,.0f} BIF ({self.status})"
+        return f"[{self.get_transaction_type_display()}] {self.reference} — {_b(self.amount)} ({self.status})"
 
     @property
     def total_amount(self):

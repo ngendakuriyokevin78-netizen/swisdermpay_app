@@ -17,6 +17,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from .models import Transaction
+from .money import fmt_bif
 from .services import (
     calculate_fee,
     _validate_transfer_prerequisites,
@@ -72,8 +73,8 @@ def create_pending_transfer(sender, receiver_phone: str, amount: Decimal) -> Tra
         balance = sender.wallet.balance
         if balance < (amount + fee):
             raise ValidationError(
-                f"Solde insuffisant pour mettre en attente. Nécessaire : {amount + fee:,.0f} BIF | "
-                f"Disponible : {balance:,.0f} BIF"
+                f"Solde insuffisant pour mettre en attente. Nécessaire : {fmt_bif(amount + fee)} | "
+                f"Disponible : {fmt_bif(balance)}"
             )
     except AttributeError:
         pass
@@ -203,7 +204,7 @@ def cancel_pending_transfer(sender, reference: str, reason: str = '') -> Transac
     })
     SMSService.send_async(
         sender.phone_number,
-        f"Swisderm Pay: Transfert en attente {txn.amount:,.0f} BIF vers "
+        f"Swisderm Pay: Transfert en attente {fmt_bif(txn.amount)} vers "
         f"{txn.receiver.phone_number if txn.receiver else '?'} annulé. Réf: {str(txn.reference)[:8].upper()}"
     )
     logger.info(f"Pending annulé {txn.reference}")

@@ -22,6 +22,7 @@ urlpatterns = [
 
     # Profil
     path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('set-pin/', views.SetPinView.as_view(), name='set-pin'),
     path('change-pin/', views.ChangePinView.as_view(), name='change-pin'),
 
     # Blocage compte client/agent (ADMIN, ajout seul)

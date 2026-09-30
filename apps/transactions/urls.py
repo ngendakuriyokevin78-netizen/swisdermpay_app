@@ -15,6 +15,8 @@ urlpatterns = [
     path('simulate/', views.SimulateFeeView.as_view(), name='fee-simulate'),
     # Historique via /api/transfer/history/
     path('history/', views.TransactionListView.as_view(), name='transaction-history'),
+    # Résumé reçus/envoyés jour/semaine (ajout seul)
+    path('summary/', views.TransactionSummaryView.as_view(), name='transaction-summary'),
     # ── Circuit EN ATTENTE (ajout seul, multi-lignes PENDING par expéditeur) ──
     path('pending/create/', pending_views.PendingCreateView.as_view(), name='pending-create'),
     path('pending/list/', pending_views.PendingListView.as_view(), name='pending-list'),

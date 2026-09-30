@@ -13,7 +13,7 @@ class BillerSerializer(serializers.ModelSerializer):
 class PayBillSerializer(serializers.Serializer):
     biller_code = serializers.CharField(help_text='Ex: REGIDESO, ENDEL, LUMICASH')
     reference_number = serializers.CharField(help_text='N° compteur / facture / téléphone')
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
     pin = serializers.CharField(min_length=4, max_length=4, write_only=True)
 
     def validate_amount(self, value):

@@ -93,7 +93,7 @@ def create_order(customer, merchant_code: str, items: list, delivery_address: st
                 product = Product.objects.get(sku=line['sku'], merchant=merchant)
             except Product.DoesNotExist:
                 raise ValidationError(f"Produit introuvable : {line.get('sku')}.")
-            qty = int(line.get('qty', 1))
+            qty = Decimal(str(line.get('qty', 1)))
             if qty <= 0:
                 raise ValidationError("Quantité invalide.")
             if not product.is_available or product.stock_quantity < qty:
@@ -182,6 +182,194 @@ def pay_order_auto(customer, order_number: str, pin: str, idempotency_key: str =
     merchant.save(update_fields=['total_revenue'])
 
     logger.info(f"Paiement auto OK {order.order_number} : {customer.phone_number} -> {merchant_phone}")
+    return order
+
+
+def pay_free(customer, receiver_phone: str, designation: str, amount, pin: str):
+    """
+    Achat libre SANS catalogue (AJOUT SEUL) : désignation + montant + destinataire.
+    - Pas de Product/SKU/stock requis. Idéal : service, coiffure, transport,
+      paiement pour une autre personne.
+    - Réutilise process_transfer (PIN transfert, frais, SMS, audit) puis enrichit
+      la description/metadata kind=FREE_PAY. Compté dans Envoyés + Achats du résumé.
+    """
+    from apps.transactions.services import process_transfer
+    from decimal import Decimal as _D
+    amount = _D(str(amount))
+    txn = process_transfer(
+        sender=customer,
+        receiver_phone=receiver_phone,
+        amount=amount,
+        pin=pin,
+    )
+    meta = dict(txn.metadata or {})
+    meta.update({'kind': 'MERCHANT_PAY', 'subkind': 'FREE_PAY', 'designation': (designation or '').strip()})
+    txn.metadata = meta
+    from apps.transactions.money import fmt_bif as _bif
+    txn.description = f"Achat libre : {(designation or '').strip()} ({_bif(amount)})"
+    txn.save(update_fields=['metadata', 'description'])
+    logger.info(f"Achat libre OK : {customer.phone_number} -> {receiver_phone} | {designation}")
+    return txn
+
+
+def grant_client_bonus(admin_user, client_phone: str, amount, reason: str = ''):
+    """
+    Bonus / remise frais pour gros acheteurs, accordé au siège Swisderm (AJOUT SEUL).
+    - ADMIN seul (vérifié dans la vue).
+    - Crédit direct wallet client (type DEPOSIT, kind=BONUS), sans toucher au moteur de frais.
+    - Visible dans Historique + Transactions (reçus).
+    """
+    from decimal import Decimal as _D
+    from django.db import transaction as _tx
+    from django.core.exceptions import ValidationError as _VE
+    from apps.authentication.models import User as _User
+    from apps.authentication.services import AuditService as _Audit, SMSService as _SMS
+    from apps.transactions.models import Transaction as _Txn
+    from apps.wallet.models import Wallet as _Wallet
+    amount = _D(str(amount))
+    if amount <= 0:
+        raise _VE("Montant bonus positif requis.")
+    if amount > _D("1000000"):
+        raise _VE("Montant bonus trop élevé (max 1 000 000 BIF par accord).")
+    reason = (reason or '').strip() or 'Bonus gros acheteur / remise frais'
+    try:
+        client = _User.objects.get(phone_number=client_phone, is_active=True)
+    except _User.DoesNotExist:
+        raise _VE(f"Client introuvable : {client_phone}.")
+    if client.is_blocked:
+        raise _VE("Compte client bloqué.")
+    with _tx.atomic():
+        wallet = _Wallet.objects.select_for_update().get(user=client)
+        if wallet.status != _Wallet.Status.ACTIVE:
+            raise _VE("Wallet client non actif.")
+        wallet.balance += amount
+        wallet.save(update_fields=['balance'])
+        txn = _Txn.objects.create(
+            sender=admin_user, receiver=client, amount=amount, fee=0,
+            transaction_type=_Txn.TransactionType.DEPOSIT,
+            status=_Txn.Status.SUCCESS,
+            description=f"Bonus Swisderm (siège) : {reason}",
+            metadata={'kind': 'BONUS', 'subkind': 'FEE_DISCOUNT', 'reason': reason,
+                      'granted_by': admin_user.phone_number, 'granted_at': str(wallet.balance)},
+        )
+    try:
+        _SMS.send_async(client_phone, f"Swisderm Pay: Bonus {_bif(amount)} reçu ({reason}). Nouveau solde: {_bif(wallet.balance)}.")
+    except Exception:
+        pass
+    try:
+        _Audit.log(user=admin_user, action='BONUS_GRANTED', details={'client': client_phone, 'amount': str(amount), 'reason': reason})
+    except Exception:
+        pass
+    logger.info(f"Bonus OK {amount} BIF siège {admin_user.phone_number} -> {client_phone} ({reason})")
+    return txn
+
+
+def _resolve_merchant(merchant_code: str):
+    """Retrouve le marchand actif par trade_name ou id (robuste aux doublons : primary d'abord)."""
+    from apps.merchant.models import MerchantProfile
+    from django.core.exceptions import ValidationError as _VE
+    code = str(merchant_code or '').strip()
+    if len(code) > 20:
+        try:
+            return MerchantProfile.objects.get(id=code)
+        except (MerchantProfile.DoesNotExist, ValueError, TypeError):
+            pass
+    m = MerchantProfile.objects.filter(trade_name__iexact=code, status='ACTIVE').order_by('-is_primary', '-created_at').first()
+    if m:
+        return m
+    m = MerchantProfile.objects.filter(trade_name__iexact=code).order_by('-is_primary', '-created_at').first()
+    if m:
+        if m.status != 'ACTIVE':
+            raise _VE("Marchand suspendu.")
+        return m
+    raise _VE(f"Marchand introuvable : {merchant_code}.")
+
+
+def register_product(merchant_code: str, sku: str, name: str, price, stock_quantity: int = 0, description: str = ''):
+    """Enregistre un produit Swisderm par l'ADMIN (ajout seul)."""
+    from .models import Product
+    from django.core.exceptions import ValidationError as _VE
+    from decimal import Decimal as _D
+    merchant = _resolve_merchant(merchant_code)
+    sku = (sku or '').strip()
+    if not sku:
+        raise _VE("SKU requis.")
+    if Product.objects.filter(sku=sku).exists():
+        raise _VE(f"SKU déjà existant : {sku}.")
+    price = _D(str(price))
+    if price <= 0:
+        raise _VE("Prix positif requis.")
+    return Product.objects.create(
+        merchant=merchant, sku=sku, name=(name or '').strip(), description=description or '',
+        price=price, stock_quantity=_D(str(stock_quantity or 0)), status=Product.Status.ACTIVE,
+    )
+
+
+def register_package(merchant_code: str, name: str, price, stock_quantity: int = 0, description: str = '', items: list = None):
+    """Enregistre un package/coffret par l'ADMIN avec son contenu [{sku, qty}]."""
+    from .models import Product, Package, PackageItem
+    from django.core.exceptions import ValidationError as _VE
+    from decimal import Decimal as _D
+    merchant = _resolve_merchant(merchant_code)
+    name = (name or '').strip()
+    if len(name) < 3:
+        raise _VE("Nom package trop court.")
+    price = _D(str(price))
+    if price <= 0:
+        raise _VE("Prix package positif requis.")
+    pkg = Package.objects.create(
+        merchant=merchant, name=name, description=description or '', price=price,
+        stock_quantity=_D(str(stock_quantity or 0)), status=Package.Status.ACTIVE,
+    )
+    for line in (items or []):
+        try:
+            product = Product.objects.get(sku=line['sku'], merchant=merchant)
+        except Product.DoesNotExist:
+            pkg.delete()
+            raise _VE(f"Produit introuvable : {line.get('sku')}. Enregistrez-le d'abord.")
+        PackageItem.objects.create(package=pkg, product=product, quantity=_D(str(line.get('qty', 1))))
+    return pkg
+
+
+def create_order_with_package(customer, merchant_code: str, package_id: str, qty: int = 1):
+    """
+    Commande d'un package existant (même ligne produit + package).
+    Crée une commande PENDING au prix du package, lignes = contenu réel (stock).
+    """
+    from .models import Order, OrderItem, Package
+    from django.core.exceptions import ValidationError as _VE
+    from decimal import Decimal as _D
+    qty = _D(str(qty or 1))
+    if qty <= 0:
+        raise _VE("Quantité invalide.")
+    try:
+        pkg = Package.objects.select_related('merchant').prefetch_related('items__product').get(id=package_id)
+    except (Package.DoesNotExist, ValueError, TypeError):
+        raise _VE("Package introuvable.")
+    if merchant_code and pkg.merchant.trade_name.lower() != str(merchant_code).lower() and str(pkg.merchant_id) != str(merchant_code):
+        pass  # on accepte tout marchand actif, le filtre n'est qu'indicatif
+    if pkg.status != Package.Status.ACTIVE:
+        raise _VE("Package inactif.")
+    if pkg.stock_quantity < qty:
+        raise _VE(f"Stock package insuffisant : {pkg.name}.")
+    with transaction.atomic():
+        order = Order.objects.create(
+            order_number=_gen_order_number(), customer=customer, merchant=pkg.merchant,
+            subtotal=pkg.price * qty, fee=_D('0'), total=pkg.price * qty, status=Order.Status.PENDING,
+            notes=f"Package : {pkg.name} x{qty}",
+        )
+        from apps.transactions.services import calculate_fee
+        fee = calculate_fee(order.subtotal)
+        order.fee = fee
+        order.save(update_fields=['fee'])
+        for line in pkg.items.all():
+            need = line.quantity * qty
+            if not line.product.is_available or line.product.stock_quantity < need:
+                raise _VE(f"Stock insuffisant : {line.product.name}.")
+            OrderItem.objects.create(order=order, product=line.product, quantity=need,
+                                     unit_price=line.product.price, total_price=line.product.price * need)
+        pkg.stock_quantity -= qty
+        pkg.save(update_fields=['stock_quantity'])
     return order
 
 

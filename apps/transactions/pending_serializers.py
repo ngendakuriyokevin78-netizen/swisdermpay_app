@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 class PendingCreateSerializer(serializers.Serializer):
     receiver_phone = serializers.CharField(help_text='Destinataire ex: +25762XXXXXX')
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
 
     def validate_amount(self, value):
         if value <= 0:
@@ -25,7 +25,7 @@ class PendingValidateSerializer(serializers.Serializer):
 class PendingModifySerializer(serializers.Serializer):
     reference = serializers.CharField()
     receiver_phone = serializers.CharField(required=False, allow_blank=True, default='')
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2, required=False)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3, required=False)
 
     def validate(self, attrs):
         if not attrs.get('receiver_phone') and attrs.get('amount') is None:

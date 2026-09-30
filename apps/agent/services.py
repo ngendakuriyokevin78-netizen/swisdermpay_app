@@ -3,9 +3,10 @@ Services métier Agent : Cash In (dépôt) et Cash Out (retrait).
 Logique atomique avec commission agent de 30% des frais.
 """
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from apps.transactions.money import fmt_bif
 
 logger = logging.getLogger('apps.agent')
 COMMISSION_RATE = Decimal('0.30')
@@ -53,7 +54,7 @@ def process_cashin(agent_user, customer_phone: str, amount: Decimal):
     )
     SMSService.send_async(
         customer_phone,
-        f"Swisderm Pay: Dépôt {amount:,.0f} BIF reçu. Nouveau solde: {wallet.balance:,.0f} BIF. Réf: {str(txn.reference)[:8].upper()}"
+        f"Swisderm Pay: Dépôt {fmt_bif(amount)} reçu. Nouveau solde: {fmt_bif(wallet.balance)}. Réf: {str(txn.reference)[:8].upper()}"
     )
     AuditService.log(user=agent_user, action='CASHIN', details={'customer': customer_phone, 'amount': str(amount)})
     logger.info(f"CashIn {amount} BIF agent {agent_user.phone_number} -> {customer_phone}")
@@ -107,11 +108,11 @@ def process_cashout(agent_user, customer_phone: str, amount: Decimal, pin: str):
     wallet = Wallet.objects.select_for_update().get(user=customer)
     if wallet.balance < total:
         raise ValidationError(
-            f"Solde insuffisant. Requis: {total:,.0f} BIF | Dispo: {wallet.balance:,.0f} BIF"
+            f"Solde insuffisant. Requis: {fmt_bif(total)} | Dispo: {fmt_bif(wallet.balance)}"
         )
     wallet.balance -= total
     wallet.save(update_fields=['balance'])
-    commission = (fee * COMMISSION_RATE).quantize(Decimal('1'))
+    commission = (fee * COMMISSION_RATE).quantize(Decimal('0.001'), rounding=ROUND_DOWN)
     if commission > 0:
         profile.commission_balance += commission
         profile.save(update_fields=['commission_balance'])
@@ -124,7 +125,7 @@ def process_cashout(agent_user, customer_phone: str, amount: Decimal, pin: str):
     )
     SMSService.send_async(
         customer_phone,
-        f"Swisderm Pay: Retrait {amount:,.0f} BIF (frais {fee:,.0f}). Solde: {wallet.balance:,.0f} BIF."
+        f"Swisderm Pay: Retrait {fmt_bif(amount)} (frais {fmt_bif(fee)}). Solde: {fmt_bif(wallet.balance)}."
     )
     AuditService.log(user=agent_user, action='CASHOUT', details={'customer': customer_phone, 'amount': str(amount)})
     logger.info(f"CashOut {amount} BIF client {customer_phone} via {agent_user.phone_number}")

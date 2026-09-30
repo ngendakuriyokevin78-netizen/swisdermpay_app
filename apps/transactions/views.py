@@ -252,6 +252,58 @@ class ReverseTransferView(APIView):
             return Response({'success': False, 'error': 'Erreur interne.'}, status=500)
 
 
+class TransactionSummaryView(APIView):
+    """
+    GET /api/transactions/summary/?period=today|week|month — AJOUT SEUL.
+    Totaux du client connecté : reçus, envoyés, frais, nombre.
+    Ne modifie aucune route existante.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter('period', openapi.IN_QUERY,
+                              description='today (jour), week (7 jours), month (30 jours)',
+                              type=openapi.TYPE_STRING),
+        ],
+        operation_summary="Résumé reçus / envoyés",
+    )
+    def get(self, request):
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.db.models import Sum, Count
+        period = (request.query_params.get('period') or 'today').lower()
+        days = {'today': 1, 'week': 7, 'month': 30}.get(period, 1)
+        since = timezone.now() - timedelta(days=days)
+        # Jour calendaire pour today (minuit Bujumbura ~ UTC+2, on garde 24h simples sans casser)
+        qs = get_user_transactions(request.user).filter(
+            status=Transaction.Status.SUCCESS, created_at__gte=since)
+        sent = qs.filter(sender=request.user).aggregate(
+            total=Sum('amount'), fees=Sum('fee'), nb=Count('id'))
+        recv = qs.filter(receiver=request.user).aggregate(
+            total=Sum('amount'), nb=Count('id'))
+        # Achats marchand inclus dans envoyés (TRANSFER metadata kind=MERCHANT_PAY) — détail en plus
+        try:
+            merch = qs.filter(sender=request.user, metadata__kind='MERCHANT_PAY').aggregate(
+                total=Sum('amount'), nb=Count('id'))
+            merch_total, merch_nb = str(merch['total'] or 0), merch['nb'] or 0
+        except Exception:
+            merch_total, merch_nb = '0', 0
+        return Response({
+            'success': True,
+            'period': period,
+            'days': days,
+            'sent_total': str(sent['total'] or 0),
+            'sent_fees': str(sent['fees'] or 0),
+            'sent_count': sent['nb'] or 0,
+            'merchant_total': merch_total,
+            'merchant_count': merch_nb,
+            'received_total': str(recv['total'] or 0),
+            'received_count': recv['nb'] or 0,
+            'currency': 'BIF',
+        })
+
+
 class AdminAllTransactionsView(ListAPIView):
     """
     GET /api/transactions/all/ — ADMIN seul.

@@ -141,10 +141,11 @@ class CommissionClaimView(APIView):
         try:
             raw = request.data.get('amount') if isinstance(request.data, dict) else None
             claimed, remaining, wallet = claim_commission(request.user, D(str(raw)) if raw else None)
+            from apps.transactions.money import fmt_bif as _bif
             return Response({'success': True, 'claimed': str(claimed),
                              'commission_balance': str(remaining),
                              'wallet_balance': str(wallet),
-                             'message': f"{claimed:,.0f} BIF versés sur votre wallet."})
+                             'message': f"{_bif(claimed)} versés sur votre wallet."})
         except ValidationError as e:
             return Response({'success': False, 'error': e.message}, status=400)
         except Exception as e:

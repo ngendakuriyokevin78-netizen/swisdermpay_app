@@ -4,55 +4,92 @@
 {% load static %}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#0b1023">
+<link rel="manifest" href="/m/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Swisderm Pay">
+<link rel="apple-touch-icon" href="/m/icons/icon-192.png">
+<link rel="icon" type="image/png" href="/m/icons/icon-192.png">
 <title>Swisderm Pay — Scanner & Payer</title>
 <style>
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;font-family:system-ui,Roboto,Arial;background:#0f0f1a;color:#fff;min-height:100vh;line-height:1.4}
-header{background:#1a1a2e;padding:12px 16px;position:sticky;top:0;z-index:5;border-bottom:2px solid #e94560}
-header h1{margin:0;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#loginCard,#app{max-width:600px;margin:0 auto;width:100%}
-.solde{background:#16213e;margin:12px;border-radius:12px;padding:14px;text-align:center}
-.solde b{font-size:clamp(22px,6vw,28px);color:#4ade80;word-break:break-all}
-#reader{width:100%;max-width:420px;margin:0 auto;background:#000;border-radius:12px;overflow:hidden;min-height:200px}
+:root{--bg:#0b1023;--bg2:#111737;--card:#161d42;--card2:#1c2450;--line:rgba(255,255,255,.09);--txt:#f4f6ff;--mut:#9aa3c7;--acc:#ff4d6d;--acc2:#7c5cff;--ok:#34d399;--err:#fb7185;--r:20px}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;background:radial-gradient(1200px 600px at 80% -10%,#2b1b5e 0%,transparent 60%),radial-gradient(900px 500px at -10% 0%,#0e3a5d 0%,transparent 55%),var(--bg);color:var(--txt);min-height:100vh;line-height:1.45;padding-bottom:90px}
+header{background:rgba(11,16,35,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:14px 16px;position:sticky;top:0;z-index:20;border-bottom:1px solid var(--line)}
+header h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+header h1 small{font-size:11px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--acc),var(--acc2));padding:3px 8px;border-radius:999px}
+#loginCard,#app{max-width:640px;margin:0 auto;width:100%;padding:0 2px}
+.solde{background:linear-gradient(135deg,#ff4d6d 0%,#7c5cff 55%,#22c3ff 130%);margin:14px 12px;border-radius:24px;padding:22px 18px;text-align:center;box-shadow:0 18px 40px -12px rgba(255,77,109,.5);position:relative;overflow:hidden}
+.solde:after{content:"";position:absolute;width:220px;height:220px;right:-60px;top:-80px;background:rgba(255,255,255,.14);border-radius:50%}
+.solde b{font-size:clamp(28px,7vw,36px);font-weight:800;letter-spacing:.5px;word-break:break-all;text-shadow:0 2px 12px rgba(0,0,0,.25)}
+#balanceLabel{font-size:12px;text-transform:uppercase;letter-spacing:2px;opacity:.9}
+#who{opacity:.92}
+#reader{width:100%;max-width:420px;margin:0 auto;background:#000;border-radius:18px;overflow:hidden;min-height:200px;border:1px solid var(--line)}
 #reader video{width:100%!important;height:auto!important;object-fit:cover}
-.card{background:#1a1a2e;margin:10px 12px;border-radius:12px;padding:14px;overflow-wrap:break-word}
-input,select,button{width:100%;max-width:100%;padding:13px;margin:6px 0;border-radius:10px;border:1px solid #333;font-size:16px;min-height:44px}
-input,select{background:#0f0f1a;color:#fff}select option{color:#000}
-button{background:#e94560;color:#fff;border:none;font-weight:700;cursor:pointer;white-space:normal}
-button.ghost{background:#16213e}button:disabled{opacity:.5}.ok{color:#4ade80}.err{color:#f87171}
-.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:10px 12px}
-.tabs button{flex:1 1 calc(33.333% - 6px);min-width:90px;width:auto;padding:10px 6px;font-size:14px;margin:0}
-.qr-ok{background:#052e16;border:1px solid #4ade80;padding:10px;border-radius:10px;word-break:break-all;font-size:14px}
-small{color:#aaa}
+.card{background:linear-gradient(180deg,var(--card),var(--card2));margin:12px;border-radius:var(--r);padding:18px;overflow-wrap:break-word;border:1px solid var(--line);box-shadow:0 12px 30px -14px rgba(0,0,0,.6)}
+.card h3{margin:4px 0 10px;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+.card h3:before{content:"";width:8px;height:18px;border-radius:99px;background:linear-gradient(180deg,var(--acc),var(--acc2));display:inline-block}
+input,select{width:100%;max-width:100%;padding:14px;margin:7px 0;border-radius:14px;border:1px solid var(--line);font-size:16px;min-height:48px;background:rgba(0,0,0,.28);color:var(--txt);outline:none;transition:.15s}
+input:focus,select:focus{border-color:var(--acc2);box-shadow:0 0 0 3px rgba(124,92,255,.25)}
+select option{color:#111}
+button{width:100%;max-width:100%;padding:14px;margin:7px 0;border-radius:14px;border:none;font-size:16px;min-height:48px;background:linear-gradient(135deg,var(--acc),#ff7a59);color:#fff;font-weight:800;cursor:pointer;white-space:normal;box-shadow:0 10px 22px -10px rgba(255,77,109,.7);transition:transform .08s}
+button:active{transform:scale(.98)}button.ghost{background:rgba(255,255,255,.08);box-shadow:none;border:1px solid var(--line)}button:disabled{opacity:.5}
+.ok{color:var(--ok)}.err{color:var(--err)}
+.tabs{position:sticky;top:64px;z-index:15;display:flex;gap:8px;margin:10px 12px;padding:10px;overflow-x:auto;background:rgba(11,16,35,.85);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:18px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;min-width:104px;width:auto;padding:11px 14px;font-size:13.5px;margin:0;border-radius:999px;background:rgba(255,255,255,.08);box-shadow:none;border:1px solid transparent}
+.tabs button:hover{border-color:var(--line)}
+#menuBtn{display:none}
+@media (max-width:640px){
+#menuBtn{display:block;position:sticky;top:62px;z-index:16}
+.tabs{display:none;flex-direction:column;align-items:stretch;overflow:visible;top:112px}
+.tabs.open{display:flex}
+.tabs button{width:100%;min-width:0;text-align:left;border-radius:14px;padding:13px 14px}
+}
+.qr-ok{background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);padding:10px;border-radius:12px;word-break:break-all;font-size:14px}
+small{color:var(--mut)}
 #pendings .card,#orders p,#history p{font-size:14px}
+#history p,#orders p{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
 div[style*="display:flex"]{flex-wrap:wrap}
 div[style*="display:flex"]>button{flex:1 1 140px;width:auto;min-width:120px}
 .zoom-phone{display:none}
+#loginCard{margin-top:16px}
+#pane-login button#loginBtn,#pane-register button{font-size:17px}
+.auth-hero{text-align:center;margin:2px 0 4px}
+.auth-hero .logo{font-size:44px;line-height:1}
+.auth-hero h3{justify-content:center;margin:6px 0}
+.auth-hero h3:before{display:none}
+.auth-switch{display:flex;gap:0;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:999px;padding:4px;margin:12px 0}
+.auth-switch button{flex:1;margin:0;border-radius:999px;background:transparent;box-shadow:none;border:none;font-size:15px;min-height:46px;color:var(--mut)}
+.auth-switch button.active{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:0 8px 18px -8px rgba(255,77,109,.8)}
+.auth-info{background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.35);border-radius:14px;padding:10px 12px;margin:10px 0}
+.install-box{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+#pinBanner{border:1px solid rgba(255,77,109,.5)!important;background:linear-gradient(180deg,#2a1440,#1c2450)}
 @media (max-width:600px){
-  .zoom-pc{display:none}
-  .zoom-phone{display:block;margin-top:6px}
-  .zoom-phone select{font-size:14px;min-height:38px}
+.zoom-pc{display:none}
+.zoom-phone{display:block;margin-top:6px}
+.zoom-phone select{font-size:14px;min-height:38px}
+.tabs{top:60px}
 }
 @media (max-width:480px){
-  header h1{font-size:16px}
-  .card{margin:8px;padding:12px}
-  .tabs{margin:8px;gap:6px}
-  .tabs button{flex:1 1 calc(50% - 6px);font-size:13px}
-  #reader{min-height:180px}
-  h3{font-size:16px;margin:8px 0}
+header h1{font-size:17px}
+.card{margin:10px;padding:15px}
+h3{font-size:15.5px}
+#reader{min-height:180px}
+body{padding-bottom:110px}
 }
 @media (min-width:601px){
-  .tabs button{flex:1;margin:0}
+#loginCard,#app{max-width:680px}
 }
 @media (min-width:900px){
-  #loginCard,#app{max-width:1100px}
-  body{font-size:17px}
-  header h1{font-size:22px}
-  .card{padding:22px;font-size:17px}
-  input,select,button{font-size:17px;padding:14px}
-  #tab-admin .card,.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  #pendings,#orders,#history,#aAllTx{font-size:15px}
+#loginCard,#app{max-width:1100px}
+body{font-size:16.5px}
+header h1{font-size:22px}
+.card{padding:22px;font-size:16.5px}
+#tab-admin .card,.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#pendings,#orders,#history,#aAllTx{font-size:15px}
 }
 html[data-zoom="grand"]{font-size:19px}
 html[data-zoom="grand"] .card{padding:22px}
@@ -67,12 +104,47 @@ html[data-zoom="tres-grand"] #loginCard,html[data-zoom="tres-grand"] #app{max-wi
 <div id="maintBanner" style="display:none;background:#7f1d1d;color:#fff;padding:10px;text-align:center;font-weight:700"></div>
 
 <div id="loginCard" class="card">
-  <h3>Connexion</h3>
-  <input id="phone" placeholder="+25762XXXXXXX" inputmode="tel" value="+257">
-  <input id="pin" placeholder="PIN 4 chiffres" type="password" inputmode="numeric" maxlength="4">
-  <button type="button" id="loginBtn" onclick="doLogin()">Se connecter</button>
-  <div id="loginMsg"></div>
-  <small>Compte test : créez via /api/docs/ → POST /api/auth/register/ puis verify-otp.</small>
+  <div class="auth-hero">
+    <div class="logo">💄</div>
+    <h3>Bienvenue sur Swisderm Pay</h3>
+  </div>
+  <div class="auth-info"><small>⭐ Numéro <b>Lumitel</b> recommandé (61, 62, 64-69). Tous les +257 acceptés.<br>🔑 Mot de passe = connexion &nbsp;•&nbsp; 🔐 Code 4 chiffres = transferts, à créer dans l'app.</small></div>
+  <div class="auth-switch">
+    <button type="button" id="tabLoginBtn" onclick="authTab('login')" class="active">Connexion</button>
+    <button type="button" id="tabRegBtn" onclick="authTab('register')">Créer un compte</button>
+  </div>
+  <div id="pane-login">
+    <input id="phone" placeholder="+25761XXXXXX (Lumitel recommandé)" inputmode="tel" value="+257">
+    <div id="opHint"><small>Opérateur : —</small></div>
+    <input id="password" placeholder="Mot de passe (min 8 caractères)" type="password">
+    <input id="pin" placeholder="PIN 4 chiffres (anciens comptes uniquement)" type="password" inputmode="numeric" maxlength="4">
+    <button type="button" id="loginBtn" onclick="doLogin()">Se connecter</button>
+    <div id="loginMsg"></div>
+  </div>
+  <div id="pane-register" style="display:none">
+    <input id="r_phone" placeholder="+25761XXXXXX (Lumitel recommandé)" inputmode="tel" value="+257">
+    <div id="r_opHint"><small>Opérateur : —</small></div>
+    <input id="r_first" placeholder="Prénom">
+    <input id="r_last" placeholder="Nom">
+    <input id="r_pass" placeholder="Mot de passe (min 8 caractères)" type="password">
+    <input id="r_pass2" placeholder="Confirmer mot de passe" type="password">
+    <button type="button" onclick="doRegister()">Créer mon compte</button>
+    <div id="regMsg"></div>
+    <hr>
+    <p><small>Déjà inscrit ? Vérifiez l'OTP reçu par SMS :</small></p>
+    <input id="o_phone" placeholder="+257..." inputmode="tel">
+    <input id="o_code" placeholder="OTP 6 chiffres" inputmode="numeric" maxlength="6">
+    <button type="button" class="ghost" onclick="doVerifyOtp()">Vérifier OTP</button>
+    <div id="otpMsg"></div>
+  </div>
+  <div class="install-box">
+    <button type="button" id="installBtn" onclick="installApp()">⬇ Installer l'app (téléphone + ordinateur)</button>
+    <div style="display:flex;gap:6px">
+      <button type="button" class="ghost" onclick="installHelp('mobile')" style="flex:1">📲 Icône téléphone</button>
+      <button type="button" class="ghost" onclick="installHelp('pc')" style="flex:1">💻 Icône ordinateur</button>
+    </div>
+    <div id="installMsg"><small>1 clic = icône sur téléphone et sur PC pour ouvrir sans navigateur.</small></div>
+  </div>
   <div><small id="jsok" style="color:#e94560">Chargement...</small></div>
 </div>
 <script>
@@ -84,7 +156,17 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
     <button class="ghost" onclick="loadWallet()">Actualiser</button>
     <button class="ghost" onclick="doLogout()">Se deconnecter</button></div>
 
-  <div class="tabs">
+  <div id="pinBanner" class="card" style="display:none;border:2px solid #e94560">
+    <h3>🔐 Créez votre code transfert (4 chiffres)</h3>
+    <p><small>Ce code sera demandé pour chaque transfert/retrait. Il ne sert pas à vous connecter.</small></p>
+    <input id="newPin" placeholder="Code 4 chiffres" type="password" inputmode="numeric" maxlength="4">
+    <input id="newPin2" placeholder="Confirmer code" type="password" inputmode="numeric" maxlength="4">
+    <button onclick="doSetPin()">Créer mon code</button>
+    <div id="pinMsg"></div>
+  </div>
+
+  <button id="menuBtn" class="ghost" onclick="toggleMenu()" style="margin:10px 12px">☰ Menu</button>
+  <div class="tabs" id="mainTabs">
     <button onclick="showTab('scan')">Scanner</button>
     <button onclick="showTab('manual')">Manuel</button>
     <button onclick="showTab('transfert')">Transfert</button>
@@ -92,7 +174,8 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
     <button onclick="showTab('cashout')">Retrait</button>
     <button onclick="showTab('orders')">Achats</button>
     <button onclick="showTab('history')">Historique</button>
-    <button onclick="showTab('admin')">Admin</button>
+    <button onclick="showTab('transactions')">Transactions</button>
+    <button id="tabBtn-admin" onclick="showTab('admin')" style="display:none">Admin</button>
   </div>
 
   <div id="tab-scan" class="card">
@@ -120,12 +203,30 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
   </div>
 
   <div id="tab-manual" class="card" style="display:none">
-    <h3>Achat manuel Swisderm</h3>
-    <input id="m_merchant" placeholder="Boutique : Swisderm" value="Swisderm">
-    <input id="m_sku" placeholder="Réf produit (SKU)">
-    <input id="m_qty" placeholder="Qté" value="1" inputmode="numeric">
-    <input id="m_pin" placeholder="PIN" type="password" maxlength="4" inputmode="numeric">
-    <button onclick="payManual()">Créer + payer la commande</button>
+    <h3>Achat libre — sans référence produit</h3>
+    <p><small>Désignation simple : coiffure, transport, service, paiement pour quelqu'un. Pas besoin de SKU.</small></p>
+    <input id="f_phone" placeholder="Numéro destinataire +257..." inputmode="tel" onblur="lookupName('f_phone','f_name')">
+    <div id="f_name"><small>Nom : —</small></div>
+    <input id="f_design" placeholder="Désignation ex Coiffure / Transport / Service">
+    <input id="f_amount" placeholder="Montant BIF" inputmode="decimal">
+    <input id="f_pin" placeholder="Code transfert 4 chiffres" type="password" maxlength="4" inputmode="numeric">
+    <button onclick="payFree()">Payer l'achat libre</button>
+    <div id="fMsg"></div>
+    <hr>
+    <h3>Paie & commande Swisderm (liste)</h3>
+    <p><small>Produits et packages enregistrés par l'admin. Choisissez sur la même ligne.</small></p>
+    <button class="ghost" onclick="loadCatalog()">↻ Charger produits + packages</button>
+    <div style="display:flex;gap:6px">
+      <select id="m_prod" style="flex:2" onchange="updateCatalogTotal()"><option value="">— Choisir produit —</option></select>
+      <select id="m_pack" style="flex:2" onchange="updateCatalogTotal()"><option value="">— Choisir package —</option></select>
+    </div>
+    <input id="m_qty" placeholder="Qté" value="1" inputmode="numeric" oninput="updateCatalogTotal()">
+    <div id="m_total"><small>Montant : —</small></div>
+    <input id="m_pin" placeholder="Code transfert 4 chiffres" type="password" maxlength="4" inputmode="numeric">
+    <div style="display:flex;gap:6px">
+      <button onclick="payCatalogProduct()" style="flex:1">Payer produit</button>
+      <button class="ghost" onclick="payCatalogPackage()" style="flex:1">Payer package</button>
+    </div>
     <div id="mMsg"></div>
   </div>
 
@@ -191,6 +292,18 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
     <h3>Historique transactions</h3>
     <button class="ghost" onclick="loadHistory()">Charger</button>
     <div id="history"></div>
+  </div>
+
+  <div id="tab-transactions" class="card" style="display:none">
+    <h3>💰 Mes transactions — reçus / envoyés</h3>
+    <p><small>Totaux par jour et par semaine dans votre compte.</small></p>
+    <select id="sumPeriod" onchange="loadSummary()">
+      <option value="today">Aujourd'hui</option>
+      <option value="week" selected>7 derniers jours</option>
+      <option value="month">30 derniers jours</option>
+    </select>
+    <button class="ghost" onclick="loadSummary()">↻ Actualiser</button>
+    <div id="sumBox"></div>
   </div>
 
   <div id="tab-admin" class="card" style="display:none">
@@ -293,6 +406,39 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
     <input id="n_msg" placeholder="Message ex Reprise du service, merci">
     <button onclick="adminNotify()">Envoyer à tous</button>
     <div id="nMsg"></div>
+    <h3>🏆 Stats boutiques / bonus (gros utilisateurs)</h3>
+    <p><small>Chaque achat est enregistré : boutique, désignation, client, montant. Pour décider des bonus.</small></p>
+    <select id="st_period">
+      <option value="week" selected>7 derniers jours</option>
+      <option value="month">30 derniers jours</option>
+      <option value="today">Aujourd'hui</option>
+      <option value="all">Tout</option>
+    </select>
+    <button class="ghost" onclick="adminStats()">↻ Charger stats bonus</button>
+    <div id="stBox"></div>
+    <h3>🎁 Accorder bonus (siège Swisderm)</h3>
+    <p><small>Remise frais / récompense gros acheteur : crédit direct sur son wallet.</small></p>
+    <input id="b_phone" placeholder="Client +257..." inputmode="tel">
+    <input id="b_amount" placeholder="Montant bonus BIF" inputmode="decimal">
+    <input id="b_reason" placeholder="Motif ex Top acheteur semaine">
+    <button onclick="adminBonus()">Accorder le bonus</button>
+    <div id="bMsg"></div>
+    <h3>🧴 Produits Swisderm (enregistrer)</h3>
+    <p><small>Stockés une fois par l'admin, proposés en liste aux clients.</small></p>
+    <input id="np_sku" placeholder="SKU ex SAVON-100">
+    <input id="np_name" placeholder="Nom ex Savon visage">
+    <input id="np_price" placeholder="Prix BIF ex 5000" inputmode="decimal">
+    <input id="np_stock" placeholder="Stock ex 100" inputmode="numeric">
+    <button class="ghost" onclick="adminAddProduct()">+ Enregistrer produit</button>
+    <div id="npMsg"></div>
+    <h3>📦 Packages Swisderm (enregistrer)</h3>
+    <p><small>Coffret : nom + prix + contenu SKU:qté séparés par virgule ex SAVON-100:2,CREME-50:1.</small></p>
+    <input id="pk_name" placeholder="Nom package ex Coffret Visage">
+    <input id="pk_price" placeholder="Prix package BIF ex 15000" inputmode="decimal">
+    <input id="pk_stock" placeholder="Stock packages ex 20" inputmode="numeric">
+    <input id="pk_items" placeholder="Contenu ex SAVON-100:2,CREME-50:1">
+    <button class="ghost" onclick="adminAddPackage()">+ Enregistrer package</button>
+    <div id="pkMsg"></div>
   </div>
 </div>
 
@@ -304,19 +450,96 @@ var ACCESS = storeGet('ct_access');
 var scanner = null;
 function setZoom(z){try{document.documentElement.setAttribute('data-zoom',z);localStorage.setItem('ct_zoom',z);}catch(e){}}
 try{var _z=storeGet('ct_zoom');if(_z){document.documentElement.setAttribute('data-zoom',_z);var _zs=document.getElementById('zoomSel');if(_zs){_zs.value=_z;}}}catch(e){}
-function showTab(t){var tabs=['scan','manual','transfert','attente','cashout','orders','history','admin'];for(var i=0;i<tabs.length;i++){document.getElementById('tab-'+tabs[i]).style.display=(tabs[i]===t?'block':'none');}if(t==='attente'){pendingList();}}
+function toggleMenu(){var m=document.getElementById('mainTabs');if(!m){return;}if(m.classList&&m.classList.toggle){m.classList.toggle('open');}else{var o=m.className.indexOf('open')!==-1;m.className=o?m.className.replace('open',''):m.className+' open';}}
+function showTab(t){if(t==='admin'){var _r=storeGet('ct_role');if(_r!=='ADMIN'){return;}}var tabs=['scan','manual','transfert','attente','cashout','orders','history','transactions','admin'];for(var i=0;i<tabs.length;i++){document.getElementById('tab-'+tabs[i]).style.display=(tabs[i]===t?'block':'none');}if(t==='attente'){pendingList();}if(t==='transactions'){loadSummary();}if(t==='manual'){try{loadCatalog();}catch(e){}}try{if(window.innerWidth<=640){var m=document.getElementById('mainTabs');if(m&&m.classList){m.classList.remove('open');}}}catch(e){}}
+function applyRoleUI(){var r=storeGet('ct_role');var b=document.getElementById('tabBtn-admin');if(b){b.style.display=(r==='ADMIN'?'block':'none');}if(r!=='ADMIN'){try{document.getElementById('tab-admin').style.display='none';}catch(e){}}}
+function authTab(t){document.getElementById('pane-login').style.display=(t==='login'?'block':'none');document.getElementById('pane-register').style.display=(t==='register'?'block':'none');try{var a=document.getElementById('tabLoginBtn'),b=document.getElementById('tabRegBtn');if(t==='login'){a.className='active';b.className='';}else{b.className='active';a.className='';}}catch(e){}}
+function lumiHint(phone, elId){
+  var p=(phone||'').replace(/[\s\-\.]/g,'');
+  var nat=p;
+  if(p.indexOf('+257')===0){nat=p.slice(4);}
+  else if(p.indexOf('257')===0&&p.length>=11){nat=p.slice(3);}
+  else if(p.charAt(0)==='0'&&p.length===9){nat=p.slice(1);}
+  var pre=nat.slice(0,2);
+  var lumi=['61','62','64','65','66','67','68','69'];
+  var el=document.getElementById(elId);
+  if(!el){return;}
+  if(nat.length<2){el.innerHTML='<small>Opérateur : —</small>';return;}
+  if(lumi.indexOf(pre)!==-1){el.innerHTML='<small class=ok>⭐ Lumitel détecté : parfait.</small>';}
+  else{el.innerHTML='<small>Opérateur autre (+257 accepté) — Lumitel recommandé (61,62,64-69).</small>';}
+}
 function doLogin(){
   var btn=document.getElementById('loginBtn'), msg=document.getElementById('loginMsg');
   var phone=document.getElementById('phone').value.replace(/^\s+|\s+$/g,'');
+  var pwd=document.getElementById('password').value||'';
   var pin=document.getElementById('pin').value.replace(/^\s+|\s+$/g,'');
-  if(pin.length!==4){msg.innerHTML='<p class=err>Entrez le PIN a 4 chiffres.</p>';return;}
+  var body={phone_number:phone};
+  if(pwd){body.password=pwd;}
+  else if(pin.length===4){body.pin=pin;}
+  else{msg.innerHTML='<p class=err>Entrez votre mot de passe (ou PIN 4 chiffres pour anciens comptes).</p>';return;}
   btn.disabled=true;btn.textContent='Connexion...';msg.innerHTML='';
-  fetch(API+'/api/auth/login/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone_number:phone,pin:pin})}).then(function(r){return r.json();}).then(function(j){
-    if(j.success){ACCESS=j.access;storeSet('ct_access',ACCESS);storeSet('ct_refresh',j.refresh||'');storeSet('ct_role',(j.user&&j.user.role)||'');document.getElementById('loginCard').style.display='none';document.getElementById('app').style.display='block';loadWallet();}
+  fetch(API+'/api/auth/login/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    if(j.success){ACCESS=j.access;storeSet('ct_access',ACCESS);storeSet('ct_refresh',j.refresh||'');storeSet('ct_role',(j.user&&j.user.role)||'');document.getElementById('loginCard').style.display='none';document.getElementById('app').style.display='block';if(j.need_pin){document.getElementById('pinBanner').style.display='block';}else{document.getElementById('pinBanner').style.display='none';}applyRoleUI();showTab('scan');loadWallet();}
     else{msg.innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';}
     btn.disabled=false;btn.textContent='Se connecter';
   }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion au serveur.</p>';btn.disabled=false;btn.textContent='Se connecter';});
 }
+function doRegister(){
+  var msg=document.getElementById('regMsg');
+  var phone=document.getElementById('r_phone').value.replace(/^\s+|\s+$/g,'');
+  var fn=document.getElementById('r_first').value.replace(/^\s+|\s+$/g,'');
+  var ln=document.getElementById('r_last').value.replace(/^\s+|\s+$/g,'');
+  var p1=document.getElementById('r_pass').value||'';
+  var p2=document.getElementById('r_pass2').value||'';
+  if(!fn||!ln){msg.innerHTML='<p class=err>Prénom + nom requis.</p>';return;}
+  if(p1.length<8){msg.innerHTML='<p class=err>Mot de passe : 8 caractères minimum.</p>';return;}
+  if(p1!==p2){msg.innerHTML='<p class=err>Les mots de passe ne correspondent pas.</p>';return;}
+  msg.innerHTML='Création...';
+  fetch(API+'/api/auth/register/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone_number:phone,first_name:fn,last_name:ln,password:p1})}).then(function(r){return r.json();}).then(function(j){
+    if(j.success){msg.innerHTML='<p class=ok>'+j.message+'<br>'+(j.recommandation||'')+'</p>';document.getElementById('o_phone').value=j.phone_number||phone;}
+    else{msg.innerHTML='<p class=err>'+(j.error||'Echec')+' '+(j.details?JSON.stringify(j.details):'')+'</p>';}
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function doVerifyOtp(){
+  var msg=document.getElementById('otpMsg');
+  var phone=document.getElementById('o_phone').value.replace(/^\s+|\s+$/g,'');
+  var code=document.getElementById('o_code').value.replace(/^\s+|\s+$/g,'');
+  msg.innerHTML='Vérification...';
+  fetch(API+'/api/auth/verify-otp/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone_number:phone,otp:code})}).then(function(r){return r.json();}).then(function(j){
+    msg.innerHTML=j.success?'<p class=ok>Téléphone vérifié. Connectez-vous avec votre mot de passe.</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){authTab('login');document.getElementById('phone').value=phone;}
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function doSetPin(){
+  var msg=document.getElementById('pinMsg');
+  var p1=(document.getElementById('newPin').value||'').replace(/^\s+|\s+$/g,'');
+  var p2=(document.getElementById('newPin2').value||'').replace(/^\s+|\s+$/g,'');
+  if(p1.length!==4){msg.innerHTML='<p class=err>Code 4 chiffres requis.</p>';return;}
+  msg.innerHTML='Création...';
+  fetch(API+'/api/auth/set-pin/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({pin:p1,confirm_pin:p2})}).then(function(r){return r.json();}).then(function(j){
+    msg.innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+    if(j.success){document.getElementById('pinBanner').style.display='none';}
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+var _deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();_deferredPrompt=e;var b=document.getElementById('installBtn');if(b){b.innerHTML='⬇ Installer maintenant (icône téléphone + PC)';}});
+window.addEventListener('appinstalled',function(){try{document.getElementById('installMsg').innerHTML='<p class=ok>Installé : cherchez l’icône Swisderm Pay sur accueil / bureau.</p>';}catch(e){}});
+function installApp(){
+  if(_deferredPrompt){_deferredPrompt.prompt();_deferredPrompt.userChoice.then(function(){_deferredPrompt=null;});}
+  else{
+    var isPC=/Windows|Macintosh|Linux/i.test(navigator.userAgent||'');
+    installHelp(isPC?'pc':'mobile');
+  }
+}
+function installHelp(which){
+  var m=document.getElementById('installMsg');
+  var mob='<b>Téléphone :</b><br>Android Chrome : menu ⋮ → « Installer l’application » ou « Ajouter à l’écran d’accueil ».<br>iPhone Safari : Partager → « Sur l’écran d’accueil ».';
+  var pc='<b>Ordinateur :</b><br>Chrome / Edge : icône Installer à droite de la barre d’adresse, ou menu ⋮ → « Installer Swisderm Pay » / « Créer un raccourci » → cocher « Ouvrir dans une fenêtre ».<br>L’icône ira sur Bureau + menu Démarrer et ouvrira sans navigateur.';
+  if(which==='mobile'){m.innerHTML='<p><small>'+mob+'</small></p>';}
+  else if(which==='pc'){m.innerHTML='<p><small>'+pc+'</small></p>';}
+  else{m.innerHTML='<p><small>'+mob+'<br><br>'+pc+'</small></p>';}
+}
+if('serviceWorker' in navigator){try{navigator.serviceWorker.register('/m/sw.js',{scope:'/m/'});}catch(e){}}
 function doLogout(){
   var refresh=storeGet('ct_refresh');
   if(refresh){fetch(API+'/api/auth/logout/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({refresh:refresh})}).catch(function(){});}
@@ -324,7 +547,8 @@ function doLogout(){
   ACCESS='';stopScan();
   document.getElementById('app').style.display='none';
   document.getElementById('loginCard').style.display='block';
-  document.getElementById('pin').value='';
+  try{document.getElementById('pin').value='';}catch(e){}
+  try{document.getElementById('password').value='';}catch(e){}
   document.getElementById('loginMsg').innerHTML='<p class=ok>Deconnecte. Reconnectez-vous.</p>';
   var btn=document.getElementById('loginBtn');btn.disabled=false;btn.textContent='Se connecter';
 }
@@ -333,13 +557,13 @@ function loadWallet(){
   if(role==='ADMIN'){
     document.getElementById('balanceLabel').textContent='Solde système (total e-money)';
     fetch(API+'/api/banking/float/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
-      if(j.total_emoney!==undefined){document.getElementById('balance').textContent=Number(j.total_emoney).toLocaleString()+' BIF';document.getElementById('who').textContent='Clients '+(Number(j.total_clients||0).toLocaleString())+' • Agents '+(Number(j.total_agents||0).toLocaleString())+' • Admin '+(Number(j.total_admins||0).toLocaleString());}
+      if(j.total_emoney!==undefined){document.getElementById('balance').textContent=Number(j.total_emoney).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF';document.getElementById('who').textContent='Clients '+(Number(j.total_clients||0).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3}))+' • Agents '+(Number(j.total_agents||0).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3}))+' • Admin '+(Number(j.total_admins||0).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3}));}
     }).catch(function(){});
     return;
   }
   document.getElementById('balanceLabel').textContent='Solde disponible';
   fetch(API+'/api/wallet/me/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
-    if(j.success){document.getElementById('balance').textContent=Number(j.wallet.balance).toLocaleString()+' BIF';document.getElementById('who').textContent=j.wallet.owner_name+' - '+j.wallet.owner_phone;}
+    if(j.success){document.getElementById('balance').textContent=Number(j.wallet.balance).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF';document.getElementById('who').textContent=j.wallet.owner_name+' - '+j.wallet.owner_phone;}
   }).catch(function(){});
 }
 function startScan(){
@@ -405,18 +629,81 @@ function payAuto(){
     loadWallet();
   }).catch(function(){document.getElementById('payMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
 }
-function payManual(){
-  var merchant_code=document.getElementById('m_merchant').value;
-  var sku=document.getElementById('m_sku').value;
-  var qty=parseInt(document.getElementById('m_qty').value||'1',10);
-  var pin=document.getElementById('m_pin').value;
-  fetch(API+'/api/shop/orders/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({merchant_code:merchant_code,items:[{sku:sku,qty:qty}]})}).then(function(r){return r.json();}).then(function(j){
+function payFree(){
+  var phone=document.getElementById('f_phone').value.replace(/^\s+|\s+$/g,'');
+  var design=document.getElementById('f_design').value.replace(/^\s+|\s+$/g,'');
+  var amount=document.getElementById('f_amount').value.replace(/^\s+|\s+$/g,'');
+  var pin=document.getElementById('f_pin').value.replace(/^\s+|\s+$/g,'');
+  if(design.length<3){document.getElementById('fMsg').innerHTML='<p class=err>Désignation requise (ex Coiffure).</p>';return;}
+  if(pin.length!==4){document.getElementById('fMsg').innerHTML='<p class=err>Code transfert 4 chiffres requis.</p>';return;}
+  document.getElementById('fMsg').innerHTML='Paiement en cours...';
+  fetch(API+'/api/shop/free-pay/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({receiver_phone:phone,designation:design,amount:amount,pin:pin})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('fMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||(j.details?JSON.stringify(j.details):'Echec'))+'</p>';
+    if(j.success){loadWallet();}
+  }).catch(function(){document.getElementById('fMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+var _catalog={prods:[],packs:[]};
+function loadCatalog(){
+  document.getElementById('mMsg').innerHTML='Chargement catalogue...';
+  fetch(API+'/api/shop/products/?merchant=Swisderm').then(function(r){return r.json();}).then(function(j){
+    var list=j.results||j;
+    _catalog.prods=(list instanceof Array)?list:[];
+    var sel=document.getElementById('m_prod');sel.innerHTML='<option value="">— Choisir produit —</option>';
+    for(var i=0;i<_catalog.prods.length;i++){var p=_catalog.prods[i];var o=document.createElement('option');o.value=p.sku;o.text=p.name+' — '+Number(p.price).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF (stock '+p.stock_quantity+')';sel.appendChild(o);}
+    return fetch(API+'/api/shop/packages/?merchant=Swisderm');
+  }).then(function(r){return r.json();}).then(function(j){
+    var list=j.results||[];
+    _catalog.packs=list;
+    var sel=document.getElementById('m_pack');sel.innerHTML='<option value="">— Choisir package —</option>';
+    for(var i=0;i<list.length;i++){var p=list[i];var o=document.createElement('option');o.value=p.id;o.text=p.name+' — '+Number(p.price).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF (stock '+p.stock_quantity+')';sel.appendChild(o);}
+    document.getElementById('mMsg').innerHTML='<p class=ok>'+_catalog.prods.length+' produits, '+list.length+' packages.</p>';
+  }).catch(function(){document.getElementById('mMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function updateCatalogTotal(){
+  var box=document.getElementById('m_total');
+  var qty=parseFloat(String((document.getElementById('m_qty')||{}).value||'1').replace(',','.'))||1;
+  var sku=document.getElementById('m_prod').value;
+  var pid=document.getElementById('m_pack').value;
+  var unit=null, label='';
+  if(pid){
+    for(var i=0;i<_catalog.packs.length;i++){if(String(_catalog.packs[i].id)===String(pid)){unit=Number(_catalog.packs[i].price);label=_catalog.packs[i].name+' (package)';break;}}
+  }else if(sku){
+    for(var k=0;k<_catalog.prods.length;k++){if(_catalog.prods[k].sku===sku){unit=Number(_catalog.prods[k].price);label=_catalog.prods[k].name;break;}}
+  }
+  if(unit==null){box.innerHTML='<small>Montant : — (choisissez produit ou package)</small>';return;}
+  var sub=unit*qty;
+  box.innerHTML='<small>Montant : <b>'+sub.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF</b> ('+label+' x'+qty+') — frais calculés auto</small>';
+  fetch(API+'/api/transfer/simulate/?amount='+encodeURIComponent(sub),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(j.success){box.innerHTML='<small>Montant : <b>'+Number(j.amount).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF</b> + frais '+Number(j.fee).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' = <b>'+Number(j.total).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF</b> ('+label+' x'+qty+')</small>';}
+  }).catch(function(){});
+}
+function payCatalogProduct(){
+  var sku=document.getElementById('m_prod').value;
+  var qty=parseFloat(String(document.getElementById('m_qty').value||'1').replace(',','.'));
+  var pin=(document.getElementById('m_pin').value||'').replace(/^\s+|\s+$/g,'');
+  if(!sku){document.getElementById('mMsg').innerHTML='<p class=err>Choisissez un produit dans la liste.</p>';return;}
+  document.getElementById('mMsg').innerHTML='Commande produit...';
+  fetch(API+'/api/shop/orders/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({merchant_code:'Swisderm',items:[{sku:sku,qty:qty}]})}).then(function(r){return r.json();}).then(function(j){
     if(!j.success){document.getElementById('mMsg').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return null;}
     return fetch(API+'/api/shop/scan-pay/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({qr_data:j.order.qr_data,pin:pin,idempotency_key:uuid()})}).then(function(r){return r.json();});
   }).then(function(j){
     if(j){document.getElementById('mMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';loadWallet();}
   }).catch(function(){document.getElementById('mMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
 }
+function payCatalogPackage(){
+  var pid=document.getElementById('m_pack').value;
+  var qty=parseFloat(String(document.getElementById('m_qty').value||'1').replace(',','.'));
+  var pin=(document.getElementById('m_pin').value||'').replace(/^\s+|\s+$/g,'');
+  if(!pid){document.getElementById('mMsg').innerHTML='<p class=err>Choisissez un package dans la liste.</p>';return;}
+  document.getElementById('mMsg').innerHTML='Commande package...';
+  fetch(API+'/api/shop/orders-package/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({package_id:pid,qty:qty})}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){document.getElementById('mMsg').innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return null;}
+    return fetch(API+'/api/shop/scan-pay/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({qr_data:j.order.qr_data,pin:pin,idempotency_key:uuid()})}).then(function(r){return r.json();});
+  }).then(function(j){
+    if(j){document.getElementById('mMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';loadWallet();}
+  }).catch(function(){document.getElementById('mMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function payManual(){payCatalogProduct();}
 function loadOrders(){
   fetch(API+'/api/shop/my-orders/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
     var list=j.results||j, html='';
@@ -582,6 +869,21 @@ function loadHistory(){
       document.getElementById('history').innerHTML=html||'Aucune transaction';
     }else{document.getElementById('history').innerHTML='Aucune transaction';}
   }).catch(function(){document.getElementById('history').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function loadSummary(){
+  var p=(document.getElementById('sumPeriod')||{}).value||'week';
+  var box=document.getElementById('sumBox');
+  box.innerHTML='Chargement...';
+  fetch(API+'/api/transactions/summary/?period='+encodeURIComponent(p),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){box.innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return;}
+    var label=(j.period==='today'?"Aujourd'hui":(j.period==='month'?'30 derniers jours':'7 derniers jours'));
+    box.innerHTML='<div class=solde><small>'+label+'</small><br>'
+      +'<p>Reçus : <b class=ok>'+Number(j.received_total).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF</b> ('+j.received_count+' op.)</p>'
+      +'<p>Envoyés : <b>'+Number(j.sent_total).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF</b> ('+j.sent_count+' op.)</p>'
+      +'<p><small>dont Achats : '+Number(j.merchant_total||0).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF ('+(j.merchant_count||0)+' achats) — inclus dans Envoyés</small></p>'
+      +'<p><small>Frais payés : '+Number(j.sent_fees).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF</small></p></div>'
+      +'<p><small>Détail ligne par ligne dans l’onglet Historique.</small></p>';
+  }).catch(function(){box.innerHTML='<p class=err>Pas de connexion.</p>';});
 }
 function adminFloat(){
   fetch(API+'/api/banking/float/',{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
@@ -800,6 +1102,53 @@ function adminNotify(){
     document.getElementById('nMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
   }).catch(function(){document.getElementById('nMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
 }
+function adminStats(){
+  var p=(document.getElementById('st_period')||{}).value||'week';
+  var box=document.getElementById('stBox');
+  box.innerHTML='Chargement...';
+  fetch(API+'/api/shop/admin-stats/?period='+encodeURIComponent(p),{headers:{Authorization:'Bearer '+ACCESS}}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){box.innerHTML='<p class=err>'+(j.error||'Echec')+'</p>';return;}
+    var html='<p><small>'+j.purchases_count+' achats sur la période</small></p><h3>Top business</h3>';
+    for(var i=0;i<j.top_business.length&&i<10;i++){var b=j.top_business[i];html+='<p><b>'+b.business+'</b> ('+b.phone+') : '+Number(b.total).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF ('+b.nb+')</p>';}
+    html+='<h3>Top clients (bonus)</h3>';
+    for(var k=0;k<j.top_clients.length&&k<10;k++){var cl=j.top_clients[k];html+='<p><b>'+cl.name+'</b> '+cl.phone+' : '+Number(cl.total).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF ('+cl.nb+' achats)</p>';}
+    html+='<h3>Top désignations</h3>';
+    for(var d=0;d<j.top_designations.length&&d<10;d++){var dg=j.top_designations[d];html+='<p>'+dg.designation+' : '+Number(dg.total).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:3})+' BIF ('+dg.nb+')</p>';}
+    box.innerHTML=html||'Aucun achat';
+  }).catch(function(){box.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminBonus(){
+  var ph=document.getElementById('b_phone').value.replace(/^\s+|\s+$/g,'');
+  var amt=document.getElementById('b_amount').value.replace(/^\s+|\s+$/g,'');
+  var reason=document.getElementById('b_reason').value||'Bonus gros acheteur / remise frais';
+  document.getElementById('bMsg').innerHTML='Attribution...';
+  fetch(API+'/api/shop/bonus/grant/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({client_phone:ph,amount:amt,reason:reason})}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('bMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||(j.details?JSON.stringify(j.details):'Echec'))+'</p>';
+    if(j.success){adminStats();}
+  }).catch(function(){document.getElementById('bMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminAddProduct(){
+  var body={merchant_code:'Swisderm',sku:document.getElementById('np_sku').value, name:document.getElementById('np_name').value,
+    price:document.getElementById('np_price').value, stock_quantity:String(document.getElementById('np_stock').value||'0').replace(',','.')};
+  document.getElementById('npMsg').innerHTML='Enregistrement...';
+  fetch(API+'/api/shop/admin/products/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('npMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||(j.details?JSON.stringify(j.details):'Echec'))+'</p>';
+  }).catch(function(){document.getElementById('npMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminAddPackage(){
+  var raw=(document.getElementById('pk_items').value||'');
+  var items=[];
+  if(raw.replace(/^\s+|\s+$/g,'')){
+    var parts=raw.split(',');
+    for(var i=0;i<parts.length;i++){var kv=parts[i].split(':');if(kv.length===2){items.push({sku:kv[0].replace(/^\s+|\s+$/g,''),qty:String(kv[1]).replace(',','.')||1});}}
+  }
+  var body={merchant_code:'Swisderm',name:document.getElementById('pk_name').value, price:document.getElementById('pk_price').value,
+    stock_quantity:String(document.getElementById('pk_stock').value||'0').replace(',','.'), items:items};
+  document.getElementById('pkMsg').innerHTML='Enregistrement...';
+  fetch(API+'/api/shop/admin/packages/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    document.getElementById('pkMsg').innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||(j.details?JSON.stringify(j.details):'Echec'))+'</p>';
+  }).catch(function(){document.getElementById('pkMsg').innerHTML='<p class=err>Pas de connexion.</p>';});
+}
 function maintCheck(){
   fetch(API+'/api/auth/maintenance/status/').then(function(r){return r.json();}).then(function(j){
     var b=document.getElementById('maintBanner');
@@ -811,12 +1160,14 @@ setInterval(maintCheck,60000);
 try{
   var lb=document.getElementById('loginBtn');
   if(lb){if(lb.addEventListener){lb.addEventListener('click',doLogin);}else if(lb.attachEvent){lb.attachEvent('onclick',doLogin);}}
-  var _ph=document.getElementById('phone'), _pp=document.getElementById('pin');
+  var _ph=document.getElementById('phone'), _pp=document.getElementById('pin'), _pw=document.getElementById('password'), _rp=document.getElementById('r_phone');
   function _enterLogin(e){if(e&&(e.key==='Enter'||e.keyCode===13)){e.preventDefault();doLogin();}}
-  if(_ph){if(_ph.addEventListener){_ph.addEventListener('keydown',_enterLogin);}else if(_ph.attachEvent){_ph.attachEvent('onkeydown',_enterLogin);}}
+  if(_ph){if(_ph.addEventListener){_ph.addEventListener('keydown',_enterLogin);_ph.addEventListener('input',function(){lumiHint(_ph.value,'opHint');});}else if(_ph.attachEvent){_ph.attachEvent('onkeydown',_enterLogin);}}
   if(_pp){if(_pp.addEventListener){_pp.addEventListener('keydown',_enterLogin);}else if(_pp.attachEvent){_pp.attachEvent('onkeydown',_enterLogin);}}
-  document.getElementById('jsok').textContent='Page prete - entrez PIN puis Se connecter.';
-  if(ACCESS){document.getElementById('loginCard').style.display='none';document.getElementById('app').style.display='block';loadWallet();}
+  if(_pw){if(_pw.addEventListener){_pw.addEventListener('keydown',_enterLogin);}else if(_pw.attachEvent){_pw.attachEvent('onkeydown',_enterLogin);}}
+  if(_rp){if(_rp.addEventListener){_rp.addEventListener('input',function(){lumiHint(_rp.value,'r_opHint');});}}
+  document.getElementById('jsok').textContent='Page prête — mot de passe pour se connecter, code 4 chiffres pour transferts.';
+  if(ACCESS){document.getElementById('loginCard').style.display='none';document.getElementById('app').style.display='block';applyRoleUI();showTab('scan');loadWallet();}
   maintCheck();
 }catch(e){try{document.getElementById('loginMsg').innerHTML='<p class=err>Erreur page, rechargez.</p>';}catch(e2){}}
 </script>

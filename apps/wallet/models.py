@@ -34,7 +34,7 @@ class Wallet(models.Model):
         verbose_name='Identifiant Wallet'
     )
     balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0,
+        max_digits=18, decimal_places=3, default=0,
         verbose_name='Solde (BIF)'
     )
     status = models.CharField(

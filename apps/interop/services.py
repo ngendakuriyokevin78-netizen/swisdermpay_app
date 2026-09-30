@@ -7,7 +7,7 @@ Cash Tel ↔ LumiCash / eNoti (Bancobu) / eHela via adaptateurs (mock par défau
 """
 import logging
 import uuid
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -28,8 +28,9 @@ def _get_provider(code: str):
 
 
 def _provider_fee(provider, amount: Decimal) -> Decimal:
+    # SANS arrondi : troncature exacte à 3 décimales
     return (provider.fee_fixed or Decimal('0')) + (
-        amount * (provider.fee_percentage or Decimal('0')) / 100).quantize(Decimal('1'))
+        amount * (provider.fee_percentage or Decimal('0')) / 100).quantize(Decimal('0.001'), rounding=ROUND_DOWN)
 
 
 def split_fee(provider, fee: Decimal) -> tuple:
@@ -41,8 +42,8 @@ def split_fee(provider, fee: Decimal) -> tuple:
     total = p + l + a
     if total <= 0 or fee <= 0:
         return Decimal('0'), Decimal('0'), Decimal('0')
-    provider_share = (fee * p / total).quantize(Decimal('1'))
-    agent_share = (fee * a / total).quantize(Decimal('1'))
+    provider_share = (fee * p / total).quantize(Decimal('0.001'), rounding=ROUND_DOWN)
+    agent_share = (fee * a / total).quantize(Decimal('0.001'), rounding=ROUND_DOWN)
     platform_share = fee - provider_share - agent_share  # résidu -> plateforme, somme exacte
     return provider_share, platform_share, agent_share
 
@@ -65,8 +66,9 @@ def interop_send(user, provider_code: str, external_phone: str, amount: Decimal,
     if provider.status == 'INACTIVE':
         raise ValidationError("Opérateur inactif.")
     if amount < provider.min_transfer or amount > provider.max_transfer:
+        from apps.transactions.money import fmt_bif as _bif
         raise ValidationError(
-            f"Limites {provider.code} : {provider.min_transfer:,.0f}–{provider.max_transfer:,.0f} BIF.")
+            f"Limites {provider.code} : {_bif(provider.min_transfer)}–{_bif(provider.max_transfer)}.")
     fee = _provider_fee(provider, amount)
     wallet = Wallet.objects.select_for_update().get(user=user)
     if wallet.balance < amount + fee:
@@ -109,7 +111,8 @@ def interop_send(user, provider_code: str, external_phone: str, amount: Decimal,
             prof.commission_balance = (prof.commission_balance or Decimal('0')) + agent_share
             prof.save(update_fields=['commission_balance'])
     transfer.save()
-    SMSService.send_async(user.phone_number, f"Swisderm Pay: Envoi {provider.code} {amount:,.0f} BIF OK.")
+    from apps.transactions.money import fmt_bif as _bif2
+    SMSService.send_async(user.phone_number, f"Swisderm Pay: Envoi {provider.code} {_bif2(amount)} OK.")
     AuditService.log(user=user, action='INTEROP_SEND',
                      details={'provider': provider.code, 'amount': str(amount), 'fee': str(fee),
                               'provider_share': str(provider_share), 'platform_share': str(platform_share),

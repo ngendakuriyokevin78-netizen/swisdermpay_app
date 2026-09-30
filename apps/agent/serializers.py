@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 class CashInSerializer(serializers.Serializer):
     customer_phone = serializers.CharField()
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
 
     def validate_amount(self, value):
         if value <= 0:
@@ -14,7 +14,7 @@ class CashInSerializer(serializers.Serializer):
 
 class CashOutSerializer(serializers.Serializer):
     customer_phone = serializers.CharField()
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
     pin = serializers.CharField(min_length=4, max_length=4, write_only=True)
 
     def validate_amount(self, value):
@@ -25,7 +25,7 @@ class CashOutSerializer(serializers.Serializer):
 
 class WithdrawRequestSerializer(serializers.Serializer):
     """Demande client : montant + PIN (AJOUT SEUL)."""
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
     pin = serializers.CharField(min_length=4, max_length=4, write_only=True)
     idempotency_key = serializers.CharField(required=False, allow_blank=True, default='')
 

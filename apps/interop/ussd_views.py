@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from cashtel.throttles import UssdRateThrottle
+from apps.transactions.money import fmt_bif as _b
 
 
 def _check_operator(request) -> bool:
@@ -157,7 +158,7 @@ class UssdGatewayView(APIView):
                 bal = user.wallet.balance
             except Exception:
                 bal = 0
-            return Response({'response': f'END Solde: {bal:,.0f} BIF'})
+            return Response({'response': f'END Solde: {_b(bal)}'})
 
         # 1. Envoyer direct : 1*montant*numero*pin
         if parts[0] == '1':
@@ -173,7 +174,7 @@ class UssdGatewayView(APIView):
                     from apps.authentication.contacts_views import normalize_phone
                     txn = process_transfer(user, normalize_phone(parts[2]),
                                            Decimal(parts[1]), parts[3])
-                    return Response({'response': f'END Envoyé {txn.amount:,.0f} BIF à {parts[2]}. Frais {txn.fee:,.0f}.'})
+                    return Response({'response': f'END Envoyé {_b(txn.amount)} à {parts[2]}. Frais {_b(txn.fee)}.'})
                 except ValidationError as e:
                     return Response({'response': f'END Echec: {e.message}'})
                 except Exception:
@@ -190,7 +191,7 @@ class UssdGatewayView(APIView):
                     from apps.transactions.pending_services import create_pending_transfer
                     from apps.authentication.contacts_views import normalize_phone
                     t = create_pending_transfer(user, normalize_phone(parts[2]), Decimal(parts[1]))
-                    return Response({'response': f'END Mis en attente {t.amount:,.0f} BIF vers {parts[2]}. Réf {str(t.reference)[:8].upper()}. Composez 3 pour valider.'})
+                    return Response({'response': f'END Mis en attente {_b(t.amount)} vers {parts[2]}. Réf {str(t.reference)[:8].upper()}. Composez 3 pour valider.'})
                 except ValidationError as e:
                     return Response({'response': f'END Echec: {e.message}'})
 
@@ -203,7 +204,7 @@ class UssdGatewayView(APIView):
                 if not pend:
                     return Response({'response': 'END Aucune attente.'})
                 msg = 'CON Choisir:\n' + '\n'.join(
-                    f'{i+1}. {p.amount:,.0f} vers {p.receiver.phone_number}' for i, p in enumerate(pend))
+                    f'{i+1}. {_b(p.amount)} vers {p.receiver.phone_number}' for i, p in enumerate(pend))
                 msg += '\n0.Retour'
                 return Response({'response': msg, 'refs': [str(p.reference) for p in pend]})
             if len(parts) == 2:
@@ -216,7 +217,7 @@ class UssdGatewayView(APIView):
                     if idx < 0 or idx >= len(pend):
                         return Response({'response': 'END Choix invalide.'})
                     txn = validate_pending_transfer(user, str(pend[idx].reference), parts[2])
-                    return Response({'response': f'END Validé {txn.amount:,.0f} BIF.'})
+                    return Response({'response': f'END Validé {_b(txn.amount)}.'})
                 except ValidationError as e:
                     return Response({'response': f'END Echec: {e.message}'})
                 except Exception:
@@ -230,7 +231,7 @@ class UssdGatewayView(APIView):
                 return Response({'response': 'END Aucune attente.'})
             if len(parts) == 1:
                 msg = 'CON Annuler:\n' + '\n'.join(
-                    f'{i+1}. {p.amount:,.0f} vers {p.receiver.phone_number}' for i, p in enumerate(pend))
+                    f'{i+1}. {_b(p.amount)} vers {p.receiver.phone_number}' for i, p in enumerate(pend))
                 msg += '\n0.Retour'
                 return Response({'response': msg})
             try:
@@ -238,7 +239,7 @@ class UssdGatewayView(APIView):
                 if idx < 0 or idx >= len(pend):
                     return Response({'response': 'END Choix invalide.'})
                 t = cancel_pending_transfer(user, str(pend[idx].reference), 'annulé via USSD')
-                return Response({'response': f'END Attente {t.amount:,.0f} BIF annulée.'})
+                return Response({'response': f'END Attente {_b(t.amount)} annulée.'})
             except ValidationError as e:
                 return Response({'response': f'END Echec: {e.message}'})
 
@@ -252,7 +253,7 @@ class UssdGatewayView(APIView):
                 lines = []
                 for t in last:
                     sens = '+' if (t.receiver_id == user.id) else '-'
-                    lines.append(f'{sens}{t.amount:,.0f} {t.status}')
+                    lines.append(f'{sens}{_b(t.amount)} {t.status}')
                 return Response({'response': 'END ' + ' | '.join(lines)})
             except Exception:
                 return Response({'response': 'END Erreur interne.'})
@@ -270,7 +271,7 @@ class UssdGatewayView(APIView):
                 from apps.transactions.services import process_transfer
                 from apps.authentication.contacts_views import normalize_phone
                 txn = process_transfer(user, normalize_phone(_achat[1]), Decimal(_achat[0]), _achat[2])
-                return Response({'response': f'END Achat {txn.amount:,.0f} BIF payé. Frais {txn.fee:,.0f}.'})
+                return Response({'response': f'END Achat {_b(txn.amount)} payé. Frais {_b(txn.fee)}.'})
             except ValidationError as e:
                 return Response({'response': f'END Echec: {e.message}'})
             except Exception:
@@ -287,7 +288,7 @@ class UssdGatewayView(APIView):
                 from apps.agent.withdraw_services import request_withdrawal
                 req = request_withdrawal(user, Decimal(_ret[0]), _ret[1],
                                          f"ussd-{norm}-{text}"[:64])
-                return Response({'response': f'END Code retrait {req.code}. {req.amount:,.0f} BIF. Montrez à l agent.'})
+                return Response({'response': f'END Code retrait {req.code}. {_b(req.amount)}. Montrez à l agent.'})
             except ValidationError as e:
                 return Response({'response': f'END Echec: {e.message}'})
             except Exception:
@@ -368,7 +369,7 @@ class SmsGatewayView(APIView):
         try:
             from apps.authentication.contacts_views import normalize_phone
             if toks[:1] == ['SOLDE']:
-                return Response({'success': True, 'reply': f'Solde: {user.wallet.balance:,.0f} BIF'})
+                return Response({'success': True, 'reply': f'Solde: {_b(user.wallet.balance)}'})
             if toks[:1] == ['ENVOYER'] and 'AU' in toks and 'PIN' in toks:
                 # ENVOYER 5000 AU +257... PIN 1234
                 amt = Decimal(toks[1])
@@ -376,31 +377,31 @@ class SmsGatewayView(APIView):
                 pin = toks[toks.index('PIN') + 1]
                 from apps.transactions.services import process_transfer
                 txn = process_transfer(user, dest, amt, pin)
-                return Response({'success': True, 'reply': f'Envoyé {txn.amount:,.0f} BIF. Frais {txn.fee:,.0f}.'})
+                return Response({'success': True, 'reply': f'Envoyé {_b(txn.amount)}. Frais {_b(txn.fee)}.'})
             if toks[:1] == ['ATTENTE'] and 'AU' in toks:
                 amt = Decimal(toks[1])
                 dest = normalize_phone(toks[toks.index('AU') + 1])
                 from apps.transactions.pending_services import create_pending_transfer
                 t = create_pending_transfer(user, dest, amt)
-                return Response({'success': True, 'reply': f'En attente {t.amount:,.0f}. Réf {t.reference}. VALIDER {t.reference} PIN XXXX.'})
+                return Response({'success': True, 'reply': f'En attente {_b(t.amount)}. Réf {t.reference}. VALIDER {t.reference} PIN XXXX.'})
             if toks[:1] == ['VALIDER'] and 'PIN' in toks:
                 ref = request.data.get('text', '').split()[1]
                 pin = toks[toks.index('PIN') + 1]
                 from apps.transactions.pending_services import validate_pending_transfer
                 txn = validate_pending_transfer(user, ref, pin)
-                return Response({'success': True, 'reply': f'Validé {txn.amount:,.0f} BIF.'})
+                return Response({'success': True, 'reply': f'Validé {_b(txn.amount)}.'})
             if toks[:1] == ['ANNULER']:
                 ref = request.data.get('text', '').split()[1]
                 from apps.transactions.pending_services import cancel_pending_transfer
                 t = cancel_pending_transfer(user, ref, 'annulé via SMS')
-                return Response({'success': True, 'reply': f'Attente {t.amount:,.0f} BIF annulée.'})
+                return Response({'success': True, 'reply': f'Attente {_b(t.amount)} annulée.'})
             if toks[:1] in (['HISTO'], ['HISTORIQUE']):
                 from apps.transactions.services import get_user_transactions
                 last = list(get_user_transactions(user)[:3])
                 if not last:
                     return Response({'success': True, 'reply': 'Aucune transaction.'})
                 txt = ' | '.join(
-                    f"{'+' if t.receiver_id == user.id else '-'}{t.amount:,.0f} {t.status}" for t in last)
+                    f"{'+' if t.receiver_id == user.id else '-'}{_b(t.amount)} {t.status}" for t in last)
                 return Response({'success': True, 'reply': txt})
         except ValidationError as e:
             return Response({'success': False, 'reply': f'Echec: {e.message}'})

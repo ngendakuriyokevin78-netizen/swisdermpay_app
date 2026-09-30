@@ -10,6 +10,7 @@ from .models import BankPartner, BankTransfer
 from .serializers import (BankPartnerSerializer, BankTransferSerializer,
                           BankDepositSerializer, BankWithdrawSerializer)
 from .services import bank_deposit, bank_withdraw, bank_webhook
+from apps.transactions.money import fmt_bif as _b
 
 logger = logging.getLogger('apps.banking.views')
 
@@ -140,7 +141,7 @@ class FloatSetView(APIView):
             from .float_guard import get_total_emoney
             if ceiling < get_total_emoney():
                 return Response({'success': False,
-                                 'error': f"Plafond {ceiling:,.0f} inférieur au total émis {get_total_emoney():,.0f}."},
+                                 'error': f"Plafond {_b(ceiling)} inférieur au total émis {_b(get_total_emoney())}."},
                                 status=400)
             f, _ = BankFloat.objects.update_or_create(
                 bank=bank, defaults={'ceiling': ceiling, 'updated_by': request.user,

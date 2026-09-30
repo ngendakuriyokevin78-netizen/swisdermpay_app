@@ -4,6 +4,7 @@ Ex : REGIDESO (eau), ENDEL / REGIDESO élec, Lumicash, Econet.
 """
 from django.db import models
 from django.conf import settings
+from apps.transactions.money import fmt_bif as _b
 
 
 class Biller(models.Model):
@@ -37,7 +38,7 @@ class BillPayment(models.Model):
     )
     biller = models.ForeignKey(Biller, on_delete=models.PROTECT, verbose_name='Fournisseur')
     reference_number = models.CharField(max_length=100, verbose_name='Référence facture')
-    amount = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Montant (BIF)')
+    amount = models.DecimalField(max_digits=18, decimal_places=3, verbose_name='Montant (BIF)')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -46,4 +47,4 @@ class BillPayment(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.biller.name} {self.amount:,.0f} BIF — {self.reference_number}"
+        return f"{self.biller.name} {_b(self.amount)} — {self.reference_number}"

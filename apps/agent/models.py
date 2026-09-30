@@ -5,6 +5,7 @@ avec solde de commissions cumulées.
 """
 from django.db import models
 from django.conf import settings
+from apps.transactions.money import fmt_bif as _b
 
 
 class AgentProfile(models.Model):
@@ -15,7 +16,7 @@ class AgentProfile(models.Model):
         related_name='agent_profile', verbose_name='Agent'
     )
     commission_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0,
+        max_digits=18, decimal_places=3, default=0,
         verbose_name='Commissions (BIF)'
     )
     shop_name = models.CharField(
@@ -29,7 +30,7 @@ class AgentProfile(models.Model):
         verbose_name_plural = 'Profils Agents'
 
     def __str__(self):
-        return f"Agent {self.user.phone_number} — {self.commission_balance:,.0f} BIF"
+        return f"Agent {self.user.phone_number} — {_b(self.commission_balance)}"
 
 
 class WithdrawalRequest(models.Model):
@@ -49,8 +50,8 @@ class WithdrawalRequest(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name='withdrawal_requests', verbose_name='Client'
     )
-    amount = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Montant (BIF)')
-    fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Frais (BIF)')
+    amount = models.DecimalField(max_digits=18, decimal_places=3, verbose_name='Montant (BIF)')
+    fee = models.DecimalField(max_digits=12, decimal_places=3, default=0, verbose_name='Frais (BIF)')
     code = models.CharField(max_length=6, unique=True, verbose_name='Code retrait')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     agent = models.ForeignKey(
@@ -76,4 +77,4 @@ class WithdrawalRequest(models.Model):
         ]
 
     def __str__(self):
-        return f"Retrait {self.amount:,.0f} BIF {self.customer.phone_number} code {self.code} [{self.status}]"
+        return f"Retrait {_b(self.amount)} {self.customer.phone_number} code {self.code} [{self.status}]"

@@ -20,7 +20,7 @@ from drf_yasg import openapi
 
 from .serializers import (
     RegisterSerializer, VerifyOTPSerializer, LoginSerializer,
-    UserProfileSerializer, ChangePinSerializer
+    UserProfileSerializer, ChangePinSerializer, SetPinSerializer
 )
 from .services import OTPService, AuditService
 from django.conf import settings
@@ -75,10 +75,24 @@ class RegisterView(APIView):
         )
 
         logger.info(f"Nouveau compte créé : {user.phone_number}")
+        # Recommandation Lumitel non bloquante (AJOUT SEUL)
+        try:
+            from .phone_utils import operator_of, is_lumitel, LUMITEL_RECOMMENDATION
+            _op = operator_of(user.phone_number)
+            _is_lumi = is_lumitel(user.phone_number)
+        except Exception:
+            _op, _is_lumi, LUMITEL_RECOMMENDATION = 'INCONNU', False, ''
+        has_pin = bool(user.pin)
         return success_response(
             {
                 'message': f'Compte créé. Un OTP a été envoyé au {user.phone_number}.',
                 'phone_number': user.phone_number,
+                'operator': _op,
+                'is_lumitel': _is_lumi,
+                'recommandation': LUMITEL_RECOMMENDATION if not _is_lumi else 'Numéro Lumitel détecté : parfait pour Cash Tel.',
+                'has_pin': has_pin,
+                'next_step': 'Vérifiez votre OTP puis connectez-vous avec votre mot de passe.'
+                if has_pin else 'Vérifiez votre OTP, connectez-vous, puis créez votre code transfert à 4 chiffres dans l’app.',
             },
             status_code=status.HTTP_201_CREATED
         )
@@ -137,7 +151,10 @@ class VerifyOTPView(APIView):
 class LoginView(APIView):
     """
     POST /api/auth/login/
-    Authentifie l'utilisateur par numéro + PIN, retourne les tokens JWT.
+    Nouveau : {phone_number, password} pour l'app internet.
+    Rétro-compat : {phone_number, pin} toujours accepté (anciens comptes/USSD).
+    Si password fourni -> vérifié en priorité, sinon fallback PIN.
+    PIN 4 chiffres = uniquement pour les transferts/débits, plus pour le login web.
     """
     permission_classes = [AllowAny]
     throttle_classes = [LoginRateThrottle]
@@ -156,7 +173,7 @@ class LoginView(APIView):
             403: 'Compte bloqué',
         },
         operation_summary="Connexion",
-        operation_description="Retourne access + refresh JWT. Blocage après 3 échecs PIN."
+        operation_description="Password en priorité, PIN en fallback compat. Blocage après 3 échecs."
     )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -167,7 +184,14 @@ class LoginView(APIView):
             )
 
         phone = serializer.validated_data['phone_number']
-        pin = serializer.validated_data['pin']
+        # Normalisation douce : accepte 61XXXXXXXX, 06.., 257.., +257..
+        try:
+            from .phone_utils import normalize_phone
+            phone = normalize_phone(phone)
+        except Exception:
+            pass
+        password = serializer.validated_data.get('password') or ''
+        pin = serializer.validated_data.get('pin') or ''
 
         try:
             user = User.objects.get(phone_number=phone)
@@ -201,14 +225,26 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Vérification PIN
-        if not user.check_pin(pin):
+        # Vérification identifiants : password d'abord, PIN en fallback
+        auth_ok = False
+        auth_mode = None
+        if password:
+            try:
+                auth_ok = user.check_password(password)
+            except Exception:
+                auth_ok = False
+            auth_mode = 'password' if auth_ok else None
+        if not auth_ok and pin:
+            auth_ok = user.check_pin(pin)
+            auth_mode = 'pin' if auth_ok else None
+        # Si password fourni mais faux, on n'essaie pas le PIN vide -> échec direct
+        if not auth_ok:
             user.failed_pin_attempts += 1
             max_attempts = settings.MAX_PIN_ATTEMPTS
 
             AuditService.log(user=user, action='LOGIN_FAILED',
                              ip_address=AuditService.get_client_ip(request),
-                             details={'phone': phone})
+                             details={'phone': phone, 'mode': 'password' if password else 'pin'})
 
             if user.failed_pin_attempts >= max_attempts:
                 user.is_blocked = True
@@ -222,8 +258,9 @@ class LoginView(APIView):
 
             user.save(update_fields=['failed_pin_attempts'])
             tentatives_restantes = max_attempts - user.failed_pin_attempts
+            msg = 'Mot de passe incorrect.' if password else 'PIN incorrect.'
             return Response(
-                {'success': False, 'error': f'PIN incorrect. {tentatives_restantes} tentative(s) restante(s).'},
+                {'success': False, 'error': f'{msg} {tentatives_restantes} tentative(s) restante(s).'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
@@ -234,18 +271,31 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)
 
         AuditService.log(user=user, action='LOGIN',
-                         ip_address=AuditService.get_client_ip(request))
-        logger.info(f"Connexion réussie : {user.phone_number}")
+                         ip_address=AuditService.get_client_ip(request),
+                         details={'mode': auth_mode or 'password'})
+        logger.info(f"Connexion réussie : {user.phone_number} via {auth_mode}")
 
+        try:
+            from .phone_utils import operator_of, is_lumitel
+            _op = operator_of(user.phone_number)
+            _is_lumi = is_lumitel(user.phone_number)
+        except Exception:
+            _op, _is_lumi = 'INCONNU', False
         return success_response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
+            'auth_mode': auth_mode,
             'user': {
                 'id': str(user.id),
                 'phone_number': user.phone_number,
                 'full_name': user.get_full_name(),
                 'role': user.role,
-            }
+                'has_pin': bool(user.pin),
+                'operator': _op,
+                'is_lumitel': _is_lumi,
+            },
+            'need_pin': not bool(user.pin),
+            'pin_message': None if user.pin else 'Créez votre code transfert à 4 chiffres dans l’app (Sécurité). Il servira uniquement pour les transferts.',
         })
 
 
@@ -339,6 +389,43 @@ class ChangePinView(APIView):
                          ip_address=AuditService.get_client_ip(request))
 
         return success_response({'message': 'PIN modifié avec succès.'})
+
+
+# ── Création PIN transfert depuis l'intérieur (AJOUT SEUL) ─────────────────
+
+class SetPinView(APIView):
+    """
+    POST /api/auth/set-pin/ {pin, confirm_pin} — connecté uniquement.
+    Crée le code transfert 4 chiffres quand l'utilisateur est déjà dans l'app.
+    - Si PIN déjà existant -> 400, utiliser change-pin.
+    - PIN = uniquement pour débits/transferts, jamais pour le login web.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=SetPinSerializer,
+        responses={200: 'Code transfert créé', 400: 'Déjà existant / invalide'},
+        operation_summary="Créer mon code transfert",
+    )
+    def post(self, request):
+        from .serializers import SetPinSerializer
+        s = SetPinSerializer(data=request.data)
+        if not s.is_valid():
+            return Response(
+                {'success': False, 'error': 'Données invalides', 'details': s.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        user = request.user
+        if user.pin:
+            return Response(
+                {'success': False, 'error': 'Code déjà créé. Utilisez Changer code pour le modifier.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        user.set_pin(s.validated_data['pin'])
+        user.save(update_fields=['pin'])
+        AuditService.log(user=user, action='PIN_CREATED',
+                         ip_address=AuditService.get_client_ip(request))
+        return success_response({'message': 'Code transfert à 4 chiffres créé. Il sera demandé pour chaque transfert.', 'has_pin': True})
 
 
 # ── Renvoyer OTP ──────────────────────────────────────────────────────────────

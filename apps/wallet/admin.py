@@ -2,6 +2,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Wallet
+from apps.transactions.money import fmt_bif as _b
 
 
 @admin.register(Wallet)
@@ -30,7 +31,7 @@ class WalletAdmin(admin.ModelAdmin):
         color = 'green' if obj.balance > 0 else 'red'
         return format_html(
             '<span style="color: {}; font-weight: bold;">{} BIF</span>',
-            color, f"{obj.balance:,.0f}"
+            color, f"{_b(obj.balance)}"
         )
     balance_display.short_description = 'Solde'
 

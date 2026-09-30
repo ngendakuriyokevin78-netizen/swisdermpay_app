@@ -6,12 +6,13 @@ Contient :
 - process_qr_transfer() : transfert par scan QR Code
 """
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.conf import settings
 
 from .models import Fee, Transaction
+from .money import fmt_bif
 
 logger = logging.getLogger('apps.transactions')
 
@@ -38,8 +39,8 @@ def calculate_fee(amount: Decimal) -> Decimal:
 
         if fee_config.fee_type == Fee.FeeType.FIXED:
             return fee_config.fee_value
-        else:  # PERCENTAGE
-            fee = (amount * fee_config.fee_value / 100).quantize(Decimal('1'))
+        else:  # PERCENTAGE — SANS arrondi : troncature exacte à 3 décimales
+            fee = (amount * fee_config.fee_value / 100).quantize(Decimal('0.001'), rounding=ROUND_DOWN)
             return fee
 
     except Exception as e:
@@ -60,7 +61,7 @@ def _validate_transfer_prerequisites(sender, amount: Decimal):
 
     min_amount = Decimal(str(settings.MIN_TRANSFER_AMOUNT))
     if amount < min_amount:
-        raise ValidationError(f"Montant minimum de transfert : {min_amount:,.0f} BIF")
+        raise ValidationError(f"Montant minimum de transfert : {fmt_bif(min_amount)}")
 
     if amount <= 0:
         raise ValidationError("Le montant doit être positif.")
@@ -74,6 +75,11 @@ def _verify_pin(sender, pin: str):
     """
     from apps.wallet.models import Wallet
 
+    # Nouveau modèle : PIN créé dans l'app, obligatoire pour tout débit
+    if not getattr(sender, 'pin', None):
+        raise ValidationError(
+            "Créez d'abord votre code transfert à 4 chiffres dans l’app (Sécurité → Créer mon code), puis réessayez."
+        )
     if not sender.check_pin(pin):
         sender.failed_pin_attempts += 1
         max_attempts = settings.MAX_PIN_ATTEMPTS
@@ -141,8 +147,8 @@ def _execute_transfer(sender, receiver, amount: Decimal) -> tuple:
     # Vérification solde
     if sender_wallet.balance < total_debit:
         raise ValidationError(
-            f"Solde insuffisant. Nécessaire : {total_debit:,.0f} BIF | "
-            f"Disponible : {sender_wallet.balance:,.0f} BIF"
+            f"Solde insuffisant. Nécessaire : {fmt_bif(total_debit)} | "
+            f"Disponible : {fmt_bif(sender_wallet.balance)}"
         )
 
     # Débit expéditeur / Crédit destinataire
@@ -159,12 +165,12 @@ def _notify_transfer(sender, receiver, amount: Decimal, fee: Decimal, reference)
     from apps.authentication.services import SMSService
     SMSService.send_async(
         sender.phone_number,
-        f"Swisderm Pay: Envoi {amount:,.0f} BIF à {receiver.get_full_name()}. "
-        f"Frais: {fee:,.0f} BIF. Réf: {str(reference)[:8].upper()}"
+        f"Swisderm Pay: Envoi {fmt_bif(amount)} à {receiver.get_full_name()}. "
+        f"Frais: {fmt_bif(fee)}. Réf: {str(reference)[:8].upper()}"
     )
     SMSService.send_async(
         receiver.phone_number,
-        f"Swisderm Pay: Reçu {amount:,.0f} BIF de {sender.get_full_name()}. "
+        f"Swisderm Pay: Reçu {fmt_bif(amount)} de {sender.get_full_name()}. "
         f"Réf: {str(reference)[:8].upper()}"
     )
 
@@ -260,7 +266,7 @@ def process_qr_transfer(sender, qr_data: str, amount: Decimal = None, pin: str =
     final_amount = embedded
     if amount is not None and embedded != amount:
         raise ValidationError(
-            f"Montant QR ({embedded:,.0f}) différent du montant saisi ({amount:,.0f}).")
+            f"Montant QR ({fmt_bif(embedded)}) différent du montant saisi ({fmt_bif(amount)}).")
 
     # Vérification cohérence wallet_id / téléphone
     try:
@@ -322,7 +328,7 @@ def reverse_transfer(actor, reference: str, reason: str = ''):
         if dest_wallet.balance < original.amount:
             raise ValidationError(
                 f"Remboursement impossible : le destinataire a déjà dépensé. "
-                f"Solde {dest_wallet.balance:,.0f} < {original.amount:,.0f} BIF.")
+                f"Solde {fmt_bif(dest_wallet.balance)} < {fmt_bif(original.amount)}.")
         dest_wallet.balance -= original.amount
         orig_wallet.balance += original.amount
         dest_wallet.save(update_fields=['balance'])
@@ -344,10 +350,10 @@ def reverse_transfer(actor, reference: str, reason: str = ''):
 
     SMSService.send_async(
         original.sender.phone_number,
-        f"Swisderm Pay: Remboursement {original.amount:,.0f} BIF reçu (erreur numéro).")
+        f"Swisderm Pay: Remboursement {fmt_bif(original.amount)} reçu (erreur numéro).")
     SMSService.send_async(
         original.receiver.phone_number,
-        f"Swisderm Pay: {original.amount:,.0f} BIF prélevés pour remboursement (erreur numéro).")
+        f"Swisderm Pay: {fmt_bif(original.amount)} prélevés pour remboursement (erreur numéro).")
     AuditService.log(user=actor, action='TRANSFER_REVERSED',
                      details={'reference': str(original.reference), 'reason': reason})
     logger.info(f"Remboursement {original.reference} par {actor.phone_number}")

@@ -7,6 +7,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 
 logger = logging.getLogger('apps.bills')
+from apps.transactions.money import fmt_bif as _b
 
 
 @transaction.atomic
@@ -32,7 +33,7 @@ def pay_bill(user, biller_code: str, reference_number: str, amount: Decimal, pin
     total = amount + fee
     wallet = Wallet.objects.select_for_update().get(user=user)
     if wallet.balance < total:
-        raise ValidationError(f"Solde insuffisant. Requis: {total:,.0f} BIF.")
+        raise ValidationError(f"Solde insuffisant. Requis: {_b(total)}.")
     wallet.balance -= total
     wallet.save(update_fields=['balance'])
     payment = BillPayment.objects.create(
@@ -47,7 +48,7 @@ def pay_bill(user, biller_code: str, reference_number: str, amount: Decimal, pin
     )
     SMSService.send_async(
         user.phone_number,
-        f"Swisderm Pay: Facture {biller.name} {amount:,.0f} BIF payée. Réf: {reference_number}."
+        f"Swisderm Pay: Facture {biller.name} {_b(amount)} payée. Réf: {reference_number}."
     )
     AuditService.log(user=user, action='BILL_PAID', details={'biller': biller_code, 'amount': str(amount)})
     return txn

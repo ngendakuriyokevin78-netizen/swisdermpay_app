@@ -5,6 +5,7 @@ Dashboard complet avec filtres, export, et détails.
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Transaction, Fee
+from .money import fmt_bif as _b
 
 
 @admin.register(Transaction)
@@ -56,23 +57,23 @@ class TransactionAdmin(admin.ModelAdmin):
     status_badge.short_description = 'Statut'
 
     def amount_display(self, obj):
-        return f"{obj.amount:,.0f} BIF"
+        return f"{_b(obj.amount)}"
     amount_display.short_description = 'Montant'
 
     def fee_display(self, obj):
-        return f"{obj.fee:,.0f} BIF"
+        return f"{_b(obj.fee)}"
     fee_display.short_description = 'Frais'
 
     def sender_balance(self, obj):
         try:
-            return f"{obj.sender.wallet.balance:,.0f} BIF"
+            return f"{_b(obj.sender.wallet.balance)}"
         except Exception:
             return '—'
     sender_balance.short_description = 'Solde expéditeur'
 
     def receiver_balance(self, obj):
         try:
-            return f"{obj.receiver.wallet.balance:,.0f} BIF"
+            return f"{_b(obj.receiver.wallet.balance)}"
         except Exception:
             return '—'
     receiver_balance.short_description = 'Solde destinataire'

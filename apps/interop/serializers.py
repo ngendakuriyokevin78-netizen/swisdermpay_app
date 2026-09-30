@@ -24,7 +24,7 @@ class ExternalTransferSerializer(serializers.ModelSerializer):
 class InteropSendSerializer(serializers.Serializer):
     provider_code = serializers.CharField()
     external_phone = serializers.CharField()
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
     pin = serializers.CharField(min_length=4, max_length=4, write_only=True)
     agent_phone = serializers.CharField(required=False, allow_blank=True, default='',
                                         help_text="Agent facilitateur (optionnel) qui reçoit la part agents")
@@ -33,4 +33,4 @@ class InteropSendSerializer(serializers.Serializer):
 class InteropReceiveSerializer(serializers.Serializer):
     provider_code = serializers.CharField()
     external_phone = serializers.CharField()
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)

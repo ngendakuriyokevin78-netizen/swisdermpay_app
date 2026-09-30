@@ -8,6 +8,7 @@ Modèles E-Commerce Cash Tel.
 import uuid
 from django.db import models
 from django.conf import settings
+from apps.transactions.money import fmt_bif as _b
 
 
 # ── Catégories Produits ───────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ class Product(models.Model):
         help_text='Code produit unique'
     )
     price = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Prix (BIF)'
     )
     image = models.ImageField(
@@ -76,8 +77,9 @@ class Product(models.Model):
         verbose_name='Image produit'
     )
 
-    stock_quantity = models.PositiveIntegerField(
-        default=0, verbose_name='Stock disponible'
+    stock_quantity = models.DecimalField(
+        max_digits=15, decimal_places=3, default=0,
+        verbose_name='Stock disponible'
     )
     status = models.CharField(
         max_length=20, choices=Status.choices,
@@ -93,11 +95,64 @@ class Product(models.Model):
         ordering = ['category', 'name']
 
     def __str__(self):
-        return f"{self.name} — {self.price:,.0f} BIF [{self.merchant.trade_name}]"
+        return f"{self.name} — {_b(self.price)} [{self.merchant.trade_name}]"
 
     @property
     def is_available(self):
         return self.status == self.Status.ACTIVE and self.stock_quantity > 0
+
+
+# ── Packages / Coffrets Swisderm (AJOUT SEUL — nouvelles tables) ────────────
+
+class Package(models.Model):
+    """
+    Coffret/package Swisderm enregistré par l'ADMIN : lot de produits à prix fixe.
+    Ex : Coffret Visage (savon + crème) = 15000 BIF.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'En vente'
+        INACTIVE = 'INACTIVE', 'Inactif'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    merchant = models.ForeignKey(
+        'merchant.MerchantProfile', on_delete=models.CASCADE,
+        related_name='packages', verbose_name='Marchand'
+    )
+    name = models.CharField(max_length=200, verbose_name='Nom du package')
+    description = models.TextField(blank=True, verbose_name='Description')
+    price = models.DecimalField(max_digits=18, decimal_places=3, verbose_name='Prix package (BIF)')
+    stock_quantity = models.DecimalField(max_digits=15, decimal_places=3, default=0, verbose_name='Stock packages')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, verbose_name='Statut')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Package'
+        verbose_name_plural = 'Packages'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} — {_b(self.price)} [{self.merchant.trade_name}]"
+
+    @property
+    def is_available(self):
+        return self.status == self.Status.ACTIVE and self.stock_quantity > 0
+
+
+class PackageItem(models.Model):
+    """Contenu d'un package : produit + quantité (pour décrémenter le stock)."""
+
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='items', verbose_name='Package')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='package_items', verbose_name='Produit')
+    quantity = models.DecimalField(max_digits=15, decimal_places=3, default=1, verbose_name='Quantité')
+
+    class Meta:
+        verbose_name = 'Ligne Package'
+        verbose_name_plural = 'Lignes Packages'
+
+    def __str__(self):
+        return f"{self.package.name} : {self.product.name} x{self.quantity}"
 
 
 # ── Commandes ─────────────────────────────────────────────────────────────────
@@ -134,15 +189,15 @@ class Order(models.Model):
 
     # ── Montants ─────────────────────────────────────────────────────────────
     subtotal = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Sous-total (BIF)'
     )
     fee = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Frais Cash Tel (BIF)'
     )
     total = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Total (BIF)'
     )
 
@@ -181,7 +236,7 @@ class Order(models.Model):
         ]
 
     def __str__(self):
-        return f"CMD-{self.order_number} — {self.total:,.0f} BIF [{self.status}]"
+        return f"CMD-{self.order_number} — {_b(self.total)} [{self.status}]"
 
 
 # ── Lignes de Commande ────────────────────────────────────────────────────────
@@ -199,14 +254,14 @@ class OrderItem(models.Model):
         related_name='order_items',
         verbose_name='Produit'
     )
-    quantity = models.PositiveIntegerField(default=1, verbose_name='Quantité')
+    quantity = models.DecimalField(max_digits=15, decimal_places=3, default=1, verbose_name='Quantité')
     unit_price = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Prix unitaire (BIF)',
         help_text='Prix au moment de la commande'
     )
     total_price = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Prix total (BIF)'
     )
 
@@ -215,7 +270,7 @@ class OrderItem(models.Model):
         verbose_name_plural = 'Lignes de Commande'
 
     def __str__(self):
-        return f"{self.product.name} x{self.quantity} — {self.total_price:,.0f} BIF"
+        return f"{self.product.name} x{self.quantity} — {_b(self.total_price)}"
 
     def save(self, *args, **kwargs):
         self.total_price = self.unit_price * self.quantity

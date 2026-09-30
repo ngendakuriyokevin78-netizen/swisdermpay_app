@@ -7,6 +7,7 @@ Modèles Interopérabilité Cash Tel.
 import uuid
 from django.db import models
 from django.conf import settings
+from apps.transactions.money import fmt_bif as _b
 
 
 # ── Opérateurs Externes ───────────────────────────────────────────────────────
@@ -86,11 +87,11 @@ class ExternalProvider(models.Model):
 
     # ── Limites & Frais ──────────────────────────────────────────────────────
     min_transfer = models.DecimalField(
-        max_digits=15, decimal_places=2, default=500,
+        max_digits=18, decimal_places=3, default=500,
         verbose_name='Transfert minimum (BIF)'
     )
     max_transfer = models.DecimalField(
-        max_digits=15, decimal_places=2, default=5000000,
+        max_digits=18, decimal_places=3, default=5000000,
         verbose_name='Transfert maximum (BIF)'
     )
     fee_percentage = models.DecimalField(
@@ -99,7 +100,7 @@ class ExternalProvider(models.Model):
         help_text='Pourcentage de frais pour les transferts inter-opérateurs'
     )
     fee_fixed = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Frais fixes (BIF)'
     )
 
@@ -188,22 +189,22 @@ class ExternalTransfer(models.Model):
         verbose_name='Direction'
     )
     amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant (BIF)'
     )
     fee = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Frais (BIF)'
     )
     # ── Split du fee (montants, somme = fee) — AJOUT SEUL ──────────────────
     provider_share = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Part opérateur (BIF)')
     platform_share = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Part Swisderm/CashTel (BIF)')
     agent_share = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Part pool agents (BIF)')
     settled = models.BooleanField(
         default=False, verbose_name='Reversé (settlement)')
@@ -243,7 +244,7 @@ class ExternalTransfer(models.Model):
         arrow = '->' if self.direction == self.Direction.SEND else '<-'
         return (
             f"Cash Tel {arrow} {self.provider.code} | "
-            f"{self.amount:,.0f} BIF — {self.status}"
+            f"{_b(self.amount)} — {self.status}"
         )
 
 
@@ -275,15 +276,15 @@ class ReconciliationRecord(models.Model):
     )
 
     internal_amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant interne (Cash Tel)'
     )
     external_amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant externe (opérateur)'
     )
     difference = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0,
+        max_digits=18, decimal_places=3, default=0,
         verbose_name='Écart (BIF)'
     )
 
@@ -301,7 +302,7 @@ class ReconciliationRecord(models.Model):
         ordering = ['-reconciled_at']
 
     def __str__(self):
-        return f"{self.provider.code} — {self.status} — Écart: {self.difference:,.0f} BIF"
+        return f"{self.provider.code} — {self.status} — Écart: {_b(self.difference)}"
 
 
 # ── Code USSD + menus *300# configurables par l'ADMIN (AJOUT SEUL) ──────────

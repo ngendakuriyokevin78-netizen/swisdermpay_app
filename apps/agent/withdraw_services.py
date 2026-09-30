@@ -10,10 +10,11 @@ Débit/frais/commission identiques à process_cashout (30% frais à l'agent).
 import logging
 import secrets
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from apps.transactions.money import fmt_bif
 
 logger = logging.getLogger('apps.agent.withdraw')
 
@@ -56,7 +57,7 @@ def request_withdrawal(customer, amount: Decimal, pin: str, idempotency_key: str
         raise ValidationError("Wallet non actif.")
     if wallet.balance < amount + fee:
         raise ValidationError(
-            f"Solde insuffisant. Requis: {(amount + fee):,.0f} BIF | Dispo: {wallet.balance:,.0f} BIF")
+            f"Solde insuffisant. Requis: {fmt_bif(amount + fee)} | Dispo: {fmt_bif(wallet.balance)}")
 
     for _ in range(5):  # code unique
         code = _gen_code()
@@ -109,7 +110,7 @@ def confirm_withdrawal(agent_user, code: str):
     wallet.save(update_fields=['balance'])
 
     profile, _ = AgentProfile.objects.get_or_create(user=agent_user)
-    commission = (req.fee * COMMISSION_RATE).quantize(Decimal('1'))
+    commission = (req.fee * COMMISSION_RATE).quantize(Decimal('0.001'), rounding=ROUND_DOWN)
     if commission > 0:
         profile.commission_balance += commission
         profile.save(update_fields=['commission_balance'])
@@ -130,7 +131,7 @@ def confirm_withdrawal(agent_user, code: str):
 
     SMSService.send_async(
         customer.phone_number,
-        f"Swisderm Pay: Retrait {req.amount:,.0f} BIF (frais {req.fee:,.0f}). Solde: {wallet.balance:,.0f} BIF.")
+        f"Swisderm Pay: Retrait {fmt_bif(req.amount)} (frais {fmt_bif(req.fee)}). Solde: {fmt_bif(wallet.balance)}.")
     AuditService.log(user=agent_user, action='WITHDRAW_CONFIRMED',
                      details={'customer': customer.phone_number, 'amount': str(req.amount), 'code': req.code})
     logger.info(f"Retrait {req.amount} BIF {customer.phone_number} via {agent_user.phone_number}")

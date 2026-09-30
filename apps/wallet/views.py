@@ -56,13 +56,19 @@ class WalletQRAmountView(APIView):
             return Response({'success': False, 'error': 'Wallet introuvable.'},
                             status=status.HTTP_404_NOT_FOUND)
         try:
+            from decimal import Decimal, ROUND_DOWN
             amount = Decimal(str(request.query_params.get('amount', '')))
-            if amount <= 0 or amount != amount.to_integral_value():
+            # 3 décimales max, SANS arrondi (troncature exacte)
+            amount = amount.quantize(Decimal('0.001'), rounding=ROUND_DOWN)
+            if amount <= 0:
                 raise InvalidOperation
         except (InvalidOperation, ValueError, TypeError, AttributeError):
-            return Response({'success': False, 'error': 'Montant BIF entier requis.'},
+            return Response({'success': False, 'error': 'Montant BIF requis (3 décimales max).'},
                             status=status.HTTP_400_BAD_REQUEST)
-        qr_data = f"SWISDERMPAY:{wallet.wallet_id}:{wallet.user.phone_number}:{int(amount):d}"
+        # QR = format machine (point décimal, sans espaces) pour rester scannable ;
+        # l'affichage français (virgule) est réservé aux écrans/SMS.
+        qr_num = f"{amount.normalize():f}"
+        qr_data = f"SWISDERMPAY:{wallet.wallet_id}:{wallet.user.phone_number}:{qr_num}"
         qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M,
                            box_size=10, border=4)
         qr.add_data(qr_data)

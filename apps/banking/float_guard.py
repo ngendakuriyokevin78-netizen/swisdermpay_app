@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum
 
 logger = logging.getLogger('apps.banking.float')
+from apps.transactions.money import fmt_bif as _b
 
 
 def get_total_emoney() -> Decimal:
@@ -48,7 +49,7 @@ def require_float(amount: Decimal, label: str = 'émission'):
             "Admin → Plafonds cantonnés → déclarez ex: CRDB 1000000.")
     if total + amount > ceiling:
         raise ValidationError(
-            f"Émission refusée ({label} {amount:,.0f} BIF) : "
-            f"total {total:,.0f} + {amount:,.0f} dépasserait le plafond {ceiling:,.0f} BIF. "
-            f"Disponible : {(ceiling - total):,.0f} BIF.")
-    logger.info(f"Float OK : {total:,.0f} + {amount:,.0f} <= {ceiling:,.0f}")
+            f"Émission refusée ({label} {_b(amount)}) : "
+            f"total {_b(total)} + {_b(amount)} dépasserait le plafond {_b(ceiling)}. "
+            f"Disponible : {_b((ceiling - total))}.")
+    logger.info(f"Float OK : {_b(total)} + {_b(amount)} <= {_b(ceiling)}")

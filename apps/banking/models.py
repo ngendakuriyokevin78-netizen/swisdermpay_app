@@ -7,6 +7,7 @@ Modèles Intégration Bancaire Cash Tel.
 import uuid
 from django.db import models
 from django.conf import settings
+from apps.transactions.money import fmt_bif as _b
 
 
 # ── Banques Partenaires ───────────────────────────────────────────────────────
@@ -62,15 +63,15 @@ class BankPartner(models.Model):
 
     # ── Limites ──────────────────────────────────────────────────────────────
     min_transfer = models.DecimalField(
-        max_digits=15, decimal_places=2, default=1000,
+        max_digits=18, decimal_places=3, default=1000,
         verbose_name='Transfert minimum (BIF)'
     )
     max_transfer = models.DecimalField(
-        max_digits=15, decimal_places=2, default=10000000,
+        max_digits=18, decimal_places=3, default=10000000,
         verbose_name='Transfert maximum (BIF)'
     )
     daily_limit = models.DecimalField(
-        max_digits=15, decimal_places=2, default=50000000,
+        max_digits=18, decimal_places=3, default=50000000,
         verbose_name='Limite journalière (BIF)'
     )
 
@@ -199,11 +200,11 @@ class BankTransfer(models.Model):
         verbose_name='Direction'
     )
     amount = models.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         verbose_name='Montant (BIF)'
     )
     fee = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
+        max_digits=12, decimal_places=3, default=0,
         verbose_name='Frais (BIF)'
     )
     status = models.CharField(
@@ -234,7 +235,7 @@ class BankTransfer(models.Model):
 
     def __str__(self):
         direction_arrow = 'BNK->WAL' if self.direction == self.Direction.DEPOSIT else 'WAL->BNK'
-        return f"{direction_arrow} {self.amount:,.0f} BIF — {self.status} — {self.reference}"
+        return f"{direction_arrow} {_b(self.amount)} — {self.status} — {self.reference}"
 
 
 class BankFloat(models.Model):
@@ -249,7 +250,7 @@ class BankFloat(models.Model):
         related_name='float_ceiling', verbose_name='Banque'
     )
     ceiling = models.DecimalField(
-        max_digits=18, decimal_places=2, default=0,
+        max_digits=18, decimal_places=3, default=0,
         verbose_name='Plafond cantonné (BIF)')
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -262,4 +263,4 @@ class BankFloat(models.Model):
         verbose_name_plural = 'Plafonds cantonnés'
 
     def __str__(self):
-        return f"{self.bank.code} plafond {self.ceiling:,.0f} BIF"
+        return f"{self.bank.code} plafond {_b(self.ceiling)}"

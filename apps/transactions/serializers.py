@@ -60,7 +60,7 @@ class TransferByPhoneSerializer(serializers.Serializer):
         help_text='Numéro du destinataire (ex: +25762XXXXXXX)'
     )
     amount = serializers.DecimalField(
-        max_digits=15, decimal_places=2,
+        max_digits=18, decimal_places=3,
         help_text='Montant en BIF (minimum 100 BIF)'
     )
     pin = serializers.CharField(
@@ -85,7 +85,7 @@ class TransferByQRSerializer(serializers.Serializer):
         help_text='Données du QR Code scanné (SWISDERMPAY:wallet_id:phone[:montant])'
     )
     amount = serializers.DecimalField(
-        max_digits=15, decimal_places=2, required=False,
+        max_digits=18, decimal_places=3, required=False,
         help_text='Montant BIF (inutile si intégré au QR)'
     )
     pin = serializers.CharField(

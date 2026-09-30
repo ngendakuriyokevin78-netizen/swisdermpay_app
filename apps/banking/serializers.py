@@ -22,7 +22,7 @@ class BankTransferSerializer(serializers.ModelSerializer):
 class BankDepositSerializer(serializers.Serializer):
     bank_code = serializers.CharField(default='CRDB')
     account_number = serializers.CharField()
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=3)
 
     def validate_amount(self, v):
         if v <= 0:
