@@ -534,3 +534,161 @@ class UnblockUserView(APIView):
                          ip_address=AuditService.get_client_ip(request),
                          details={'target': phone})
         return success_response({'message': f'Compte {phone} débloqué.'})
+
+
+# ── Changer son propre mot de passe (connecté, TOUS rôles dont ADMIN) ───
+
+class ChangePasswordView(APIView):
+    """
+    POST /api/auth/change-password/ {current_password, new_password, confirm_password}.
+    Pour l'utilisateur connecté lui-même (client, agent ou admin).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        cur = request.data.get('current_password') or ''
+        new = request.data.get('new_password') or ''
+        conf = request.data.get('confirm_password') or ''
+        user = request.user
+        has_pwd = bool(user.password and not user.password.startswith('!'))
+        if has_pwd and not user.check_password(cur):
+            return Response({'success': False, 'error': 'Mot de passe actuel incorrect.'}, status=400)
+        if len(new) < 8:
+            return Response({'success': False, 'error': 'Nouveau mot de passe : 8 caractères minimum.'}, status=400)
+        if new != conf:
+            return Response({'success': False, 'error': 'Les mots de passe ne correspondent pas.'}, status=400)
+        user.set_password(new)
+        user.save(update_fields=['password'])
+        AuditService.log(user=user, action='PASSWORD_CHANGED',
+                         ip_address=AuditService.get_client_ip(request))
+        return success_response({'message': 'Mot de passe modifié. Reconnectez-vous.'})
+
+
+# ── Reset password + changement numéro par l'ADMIN (AJOUT SEUL) ───────────
+
+class AdminResetPasswordView(APIView):
+    """
+    POST /api/auth/admin/reset-password/ {phone_number, new_password} — ADMIN seul.
+    Réinitialise le mot de passe connexion d'un client/agent. SMS notifié.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'ADMIN' and not request.user.is_staff:
+            return Response({'success': False, 'error': 'Réservé ADMIN.'}, status=403)
+        phone = (request.data.get('phone_number') or '').strip()
+        new_pwd = request.data.get('new_password') or ''
+        if not phone:
+            return Response({'success': False, 'error': 'Numéro requis.'}, status=400)
+        if len(new_pwd) < 8:
+            return Response({'success': False, 'error': 'Nouveau mot de passe : 8 caractères minimum.'}, status=400)
+        try:
+            target = User.objects.get(phone_number=phone)
+        except User.DoesNotExist:
+            return Response({'success': False, 'error': 'Compte introuvable.'}, status=404)
+        if target.is_superuser and not request.user.is_superuser:
+            return Response({'success': False, 'error': 'Superuser : seul un superuser peut le réinitialiser.'}, status=400)
+        target.set_password(new_pwd)
+        target.failed_pin_attempts = 0
+        target.save(update_fields=['password', 'failed_pin_attempts'])
+        AuditService.log(user=request.user, action='PASSWORD_RESET_ADMIN',
+                         ip_address=AuditService.get_client_ip(request),
+                         details={'target': phone})
+        try:
+            from .services import SMSService
+            SMSService.send_async(phone, "Swisderm Pay: Votre mot de passe a été réinitialisé par le support. Connectez-vous avec le nouveau mot de passe.")
+        except Exception:
+            pass
+        return success_response({'message': f'Mot de passe de {phone} réinitialisé.'})
+
+
+class AdminChangePhoneView(APIView):
+    """
+    POST /api/auth/admin/change-phone/ {old_phone, new_phone} — ADMIN seul.
+    Change le numéro identifiant d'un client/agent (ex : perte de SIM).
+    Le nouveau numéro doit être libre et vérifié par OTP ensuite.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'ADMIN' and not request.user.is_staff:
+            return Response({'success': False, 'error': 'Réservé ADMIN.'}, status=403)
+        old_phone = (request.data.get('old_phone') or '').strip()
+        new_phone = (request.data.get('new_phone') or '').strip()
+        if not old_phone or not new_phone:
+            return Response({'success': False, 'error': 'Ancien + nouveau numéros requis.'}, status=400)
+        try:
+            from .phone_utils import normalize_phone
+            new_phone = normalize_phone(new_phone)
+        except ValueError as e:
+            return Response({'success': False, 'error': str(e)}, status=400)
+        try:
+            target = User.objects.get(phone_number=old_phone)
+        except User.DoesNotExist:
+            return Response({'success': False, 'error': 'Compte introuvable.'}, status=404)
+        if target.is_superuser and not request.user.is_superuser:
+            return Response({'success': False, 'error': 'Numéro superuser : seul un superuser peut le changer.'}, status=400)
+        if User.objects.filter(phone_number=new_phone).exists():
+            return Response({'success': False, 'error': 'Nouveau numéro déjà utilisé.'}, status=400)
+        target.phone_number = new_phone
+        target.is_phone_verified = False
+        target.otp = None
+        target.otp_expires_at = None
+        target.save(update_fields=['phone_number', 'is_phone_verified', 'otp', 'otp_expires_at'])
+        from .services import OTPService
+        OTPService.send_otp(target)
+        AuditService.log(user=request.user, action='PHONE_CHANGED_ADMIN',
+                         ip_address=AuditService.get_client_ip(request),
+                         details={'old': old_phone, 'new': new_phone})
+        return success_response({
+            'message': f'Numéro changé : {old_phone} → {new_phone}. OTP envoyé au nouveau numéro.',
+            'phone_number': new_phone,
+        })
+
+
+class AdminUpdateAccountView(APIView):
+    """
+    POST /api/auth/admin/update-account/ {phone_number, first_name?, last_name?, role?} — ADMIN seul.
+    Modifie le compte d'un client/agent depuis l'espace admin (nom, rôle).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'ADMIN' and not request.user.is_staff:
+            return Response({'success': False, 'error': 'Réservé ADMIN.'}, status=403)
+        phone = (request.data.get('phone_number') or '').strip()
+        if not phone:
+            return Response({'success': False, 'error': 'Numéro requis.'}, status=400)
+        try:
+            target = User.objects.get(phone_number=phone)
+        except User.DoesNotExist:
+            return Response({'success': False, 'error': 'Compte introuvable.'}, status=404)
+        if target.is_superuser and not request.user.is_superuser:
+            return Response({'success': False, 'error': 'Superuser non modifiable.'}, status=400)
+        changed = []
+        fn = (request.data.get('first_name') or '').strip()
+        ln = (request.data.get('last_name') or '').strip()
+        role = (request.data.get('role') or '').strip().upper()
+        if fn:
+            target.first_name = fn
+            changed.append('prénom')
+        if ln:
+            target.last_name = ln
+            changed.append('nom')
+        if role:
+            if role not in ('USER', 'AGENT', 'ADMIN'):
+                return Response({'success': False, 'error': 'Rôle invalide (USER/AGENT/ADMIN).'}, status=400)
+            if role == 'ADMIN' and not request.user.is_superuser:
+                return Response({'success': False, 'error': 'Passage ADMIN réservé superuser.'}, status=400)
+            target.role = role
+            target.is_staff = True if role == 'ADMIN' else (target.is_staff and target.is_superuser)
+            changed.append('rôle')
+        if not changed:
+            return Response({'success': False, 'error': 'Rien à modifier (prénom, nom ou rôle).'}, status=400)
+        target.save()
+        AuditService.log(user=request.user, action='ACCOUNT_UPDATED_ADMIN',
+                         ip_address=AuditService.get_client_ip(request),
+                         details={'target': phone, 'changed': changed})
+        return success_response({'message': f"Compte {phone} modifié ({', '.join(changed)}).",
+                                 'user': {'phone_number': target.phone_number,
+                                          'full_name': target.get_full_name(), 'role': target.role}})

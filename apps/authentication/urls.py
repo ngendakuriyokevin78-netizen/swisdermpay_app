@@ -24,10 +24,15 @@ urlpatterns = [
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('set-pin/', views.SetPinView.as_view(), name='set-pin'),
     path('change-pin/', views.ChangePinView.as_view(), name='change-pin'),
+    path('change-password/', views.ChangePasswordView.as_view(), name='change-password'),
 
     # Blocage compte client/agent (ADMIN, ajout seul)
     path('block/', views.BlockUserView.as_view(), name='block'),
     path('unblock/', views.UnblockUserView.as_view(), name='unblock'),
+    # Reset password + changement numéro + modif compte (ADMIN siège, ajout seul)
+    path('admin/reset-password/', views.AdminResetPasswordView.as_view(), name='admin-reset-password'),
+    path('admin/change-phone/', views.AdminChangePhoneView.as_view(), name='admin-change-phone'),
+    path('admin/update-account/', views.AdminUpdateAccountView.as_view(), name='admin-update-account'),
     # Contacts : noms correspondants + récents (ajout seul)
     path('contacts/resolve/', contacts_views.ContactResolveView.as_view(), name='contacts-resolve'),
     path('contacts/recent/', contacts_views.RecentContactsView.as_view(), name='contacts-recent'),

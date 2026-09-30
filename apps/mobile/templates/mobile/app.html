@@ -165,6 +165,15 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
     <div id="pinMsg"></div>
   </div>
 
+  <div id="pwdCard" class="card">
+    <h3>🔑 Mon mot de passe</h3>
+    <input id="cp_cur" placeholder="Mot de passe actuel" type="password">
+    <input id="cp_new" placeholder="Nouveau (min 8 caractères)" type="password">
+    <input id="cp_conf" placeholder="Confirmer nouveau" type="password">
+    <button class="ghost" onclick="doChangePassword()">Changer mon mot de passe</button>
+    <div id="cpMsg"></div>
+  </div>
+
   <button id="menuBtn" class="ghost" onclick="toggleMenu()" style="margin:10px 12px">☰ Menu</button>
   <div class="tabs" id="mainTabs">
     <button onclick="showTab('scan')">Scanner</button>
@@ -326,6 +335,23 @@ try{document.getElementById('jsok').textContent='JS actif, chargement...';}catch
     <button onclick="adminBlock()">Bloquer</button>
     <button class="ghost" onclick="adminUnblock()">Debloquer</button>
     <div id="aBlockMsg"></div>
+    <h3>🔑 Mot de passe client (reset)</h3>
+    <input id="a_rp_phone" placeholder="Numéro client +257..." inputmode="tel">
+    <input id="a_rp_new" placeholder="Nouveau mot de passe (min 8)" type="password">
+    <button onclick="adminResetPwd()">Réinitialiser mot de passe</button>
+    <div id="aRpMsg"></div>
+    <h3>📞 Changer numéro client</h3>
+    <input id="a_cp_old" placeholder="Ancien numéro +257..." inputmode="tel">
+    <input id="a_cp_new" placeholder="Nouveau numéro +257..." inputmode="tel">
+    <button onclick="adminChangePhone()">Changer + envoyer OTP</button>
+    <div id="aCpMsg"></div>
+    <h3>✏️ Modifier compte client</h3>
+    <input id="a_up_phone" placeholder="Numéro compte +257..." inputmode="tel">
+    <input id="a_up_first" placeholder="Nouveau prénom (vide = garder)">
+    <input id="a_up_last" placeholder="Nouveau nom (vide = garder)">
+    <select id="a_up_role"><option value="">— Rôle inchangé —</option><option>USER</option><option>AGENT</option><option>ADMIN</option></select>
+    <button onclick="adminUpdateAccount()">Modifier le compte</button>
+    <div id="aUpMsg"></div>
     <h3>Reversements operateurs</h3>
     <input id="a_ym" placeholder="AAAA-MM ex 2026-09" value="2026-09">
     <button class="ghost" onclick="adminSettle()">Rapport mensuel</button>
@@ -519,6 +545,37 @@ function doSetPin(){
   fetch(API+'/api/auth/set-pin/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({pin:p1,confirm_pin:p2})}).then(function(r){return r.json();}).then(function(j){
     msg.innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
     if(j.success){document.getElementById('pinBanner').style.display='none';}
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function doChangePassword(){
+  var msg=document.getElementById('cpMsg');
+  var body={current_password:document.getElementById('cp_cur').value||'',
+    new_password:document.getElementById('cp_new').value||'',
+    confirm_password:document.getElementById('cp_conf').value||''};
+  msg.innerHTML='Modification...';
+  fetch(API+'/api/auth/change-password/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
+    msg.innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminResetPwd(){
+  var msg=document.getElementById('aRpMsg');
+  msg.innerHTML='Réinitialisation...';
+  fetch(API+'/api/auth/admin/reset-password/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({phone_number:document.getElementById('a_rp_phone').value,new_password:document.getElementById('a_rp_new').value})}).then(function(r){return r.json();}).then(function(j){
+    msg.innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminChangePhone(){
+  var msg=document.getElementById('aCpMsg');
+  msg.innerHTML='Changement...';
+  fetch(API+'/api/auth/admin/change-phone/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({old_phone:document.getElementById('a_cp_old').value,new_phone:document.getElementById('a_cp_new').value})}).then(function(r){return r.json();}).then(function(j){
+    msg.innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
+  }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
+}
+function adminUpdateAccount(){
+  var msg=document.getElementById('aUpMsg');
+  msg.innerHTML='Modification...';
+  fetch(API+'/api/auth/admin/update-account/',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ACCESS},body:JSON.stringify({phone_number:document.getElementById('a_up_phone').value,first_name:document.getElementById('a_up_first').value,last_name:document.getElementById('a_up_last').value,role:document.getElementById('a_up_role').value})}).then(function(r){return r.json();}).then(function(j){
+    msg.innerHTML=j.success?'<p class=ok>'+j.message+'</p>':'<p class=err>'+(j.error||'Echec')+'</p>';
   }).catch(function(){msg.innerHTML='<p class=err>Pas de connexion.</p>';});
 }
 var _deferredPrompt=null;
