@@ -43,7 +43,7 @@ class ServiceWorkerView(View):
 
     def get(self, request):
         js = (
-            "var CACHE='cashtel-v32';var CORE=['/m/'];"
+            "var CACHE='cashtel-v33';var CORE=['/m/'];"
             "self.addEventListener('install',function(e){e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(CORE);}).then(function(){return self.skipWaiting();}));});"
             "self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){if(k!==CACHE){return caches.delete(k);} }));}).then(function(){return self.clients.claim();}));});"
             "self.addEventListener('fetch',function(e){var u=e.request.url;if(u.indexOf('/api/')!==-1||u.indexOf('/admin/')!==-1){return;}e.respondWith(fetch(e.request).then(function(r){try{var c=r.clone();caches.open(CACHE).then(function(cache){cache.put(e.request,c);});}catch(_){}return r;}).catch(function(){return caches.match(e.request).then(function(h){return h||caches.match('/m/');});}));});"
