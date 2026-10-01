@@ -28,16 +28,20 @@ class MerchantListView(ListAPIView):
 
 
 class ProductListView(ListAPIView):
-    """GET /api/shop/products/?merchant=Swisderm — catalogue téléphone."""
+    """GET /api/shop/products/?merchant=Swisderm&search=nom — catalogue téléphone."""
     permission_classes = [AllowAny]
     serializer_class = ProductSerializer
     pagination_class = None
 
     def get_queryset(self):
-        qs = Product.objects.filter(status='ACTIVE').select_related('merchant')
+        from django.db.models import Q
+        qs = Product.objects.filter(status='ACTIVE').select_related('merchant').prefetch_related('images')
         merchant = self.request.query_params.get('merchant')
         if merchant:
             qs = qs.filter(merchant__trade_name__iexact=merchant)
+        search = (self.request.query_params.get('search') or '').strip()
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(sku__icontains=search))
         return qs[:100]
 
 
@@ -52,13 +56,47 @@ class PackageListView(ListAPIView):
         merchant = request.query_params.get('merchant')
         if merchant:
             qs = qs.filter(merchant__trade_name__iexact=merchant)
+        search = (request.query_params.get('search') or '').strip()
+        if search:
+            qs = qs.filter(name__icontains=search)
         out = []
         for p in qs[:100]:
+            try:
+                img = request.build_absolute_uri(p.image.url) if p.image else None
+            except Exception:
+                img = None
             out.append({'id': str(p.id), 'name': p.name, 'description': p.description,
                         'price': str(p.price), 'stock_quantity': p.stock_quantity, 'status': p.status,
-                        'merchant_name': p.merchant.trade_name,
+                        'merchant_name': p.merchant.trade_name, 'image_url': img,
                         'items': [{'sku': i.product.sku, 'name': i.product.name, 'qty': i.quantity} for i in p.items.all()]})
         return Response({'success': True, 'results': out})
+
+
+class ProductImageUploadView(APIView):
+    """POST /api/shop/admin/products/<sku>/images/ (multipart image) — ADMIN seul, ajout seul."""
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(operation_summary="Ajouter une image produit (ADMIN)")
+    def post(self, request, sku):
+        if request.user.role != 'ADMIN' and not request.user.is_staff:
+            return Response({'success': False, 'error': 'Réservé ADMIN.'}, status=403)
+        from .models import Product, ProductImage
+        try:
+            product = Product.objects.get(sku=sku)
+        except Product.DoesNotExist:
+            return Response({'success': False, 'error': f'Produit introuvable : {sku}.'}, status=404)
+        img = request.FILES.get('image')
+        if not img:
+            return Response({'success': False, 'error': 'Fichier image requis (champ image).'}, status=400)
+        try:
+            order = ProductImage.objects.filter(product=product).count()
+            pi = ProductImage.objects.create(product=product, image=img, sort_order=order)
+            url = request.build_absolute_uri(pi.image.url)
+            return Response({'success': True, 'message': f'Image ajoutée à {sku}.',
+                             'image_url': url, 'total': order + 1})
+        except Exception as e:
+            logger.exception(e)
+            return Response({'success': False, 'error': 'Erreur interne.'}, status=500)
 
 
 class ProductRegisterView(APIView):

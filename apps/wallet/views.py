@@ -34,6 +34,8 @@ class WalletDetailView(APIView):
                 {'success': False, 'error': 'Wallet introuvable.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+        serializer = WalletSerializer(wallet, context={'request': request})
+        return Response({'success': True, 'wallet': serializer.data})
 
 
 class WalletQRAmountView(APIView):
@@ -79,9 +81,6 @@ class WalletQRAmountView(APIView):
         resp = HttpResponse(buf.getvalue(), content_type='image/png')
         resp['X-QR-Data'] = qr_data
         return resp
-
-        serializer = WalletSerializer(wallet, context={'request': request})
-        return Response({'success': True, 'wallet': serializer.data})
 
 
 class WalletQRCodeView(APIView):

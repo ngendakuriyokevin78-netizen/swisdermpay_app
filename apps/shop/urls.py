@@ -9,6 +9,7 @@ urlpatterns = [
     path('products/', views.ProductListView.as_view(), name='product-list'),
     path('packages/', views.PackageListView.as_view(), name='package-list'),
     path('admin/products/', views.ProductRegisterView.as_view(), name='admin-product-register'),
+    path('admin/products/<str:sku>/images/', views.ProductImageUploadView.as_view(), name='admin-product-image'),
     path('admin/packages/', views.PackageRegisterView.as_view(), name='admin-package-register'),
     path('orders-package/', views.OrderPackageView.as_view(), name='order-package'),
     path('orders/', views.OrderCreateView.as_view(), name='order-create'),

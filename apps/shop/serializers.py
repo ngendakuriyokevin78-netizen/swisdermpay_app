@@ -14,15 +14,52 @@ class ProductCategorySerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     merchant_name = serializers.CharField(source='merchant.trade_name', read_only=True)
     qr_data = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id', 'sku', 'name', 'description', 'price', 'stock_quantity',
-                  'status', 'merchant', 'merchant_name', 'category', 'qr_data']
+                  'status', 'merchant', 'merchant_name', 'category', 'qr_data',
+                  'image_url', 'images']
 
     def get_qr_data(self, obj):
         code = str(obj.merchant_id)
         return f"SWISDERM:{code}:{obj.sku}:1"
+
+    def _abs(self, request, url):
+        if not url:
+            return None
+        try:
+            return request.build_absolute_uri(url) if request else url
+        except Exception:
+            return url
+
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.image:
+            try:
+                return self._abs(request, obj.image.url)
+            except Exception:
+                return None
+        first = obj.images.first() if hasattr(obj, 'images') else None
+        if first and first.image:
+            try:
+                return self._abs(request, first.image.url)
+            except Exception:
+                return None
+        return None
+
+    def get_images(self, obj):
+        request = self.context.get('request')
+        out = []
+        try:
+            for im in obj.images.all()[:10]:
+                if im.image:
+                    out.append(self._abs(request, im.image.url))
+        except Exception:
+            pass
+        return out
 
 
 class MerchantPublicSerializer(serializers.ModelSerializer):
@@ -119,6 +156,7 @@ class PackageSerializer(serializers.Serializer):
     status = serializers.CharField(read_only=True)
     merchant_name = serializers.CharField(read_only=True)
     items = serializers.ListField(read_only=True)
+    image_url = serializers.CharField(read_only=True, required=False, allow_null=True)
 
 
 class PackageCreateSerializer(serializers.Serializer):

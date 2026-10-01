@@ -102,6 +102,26 @@ class Product(models.Model):
         return self.status == self.Status.ACTIVE and self.stock_quantity > 0
 
 
+class ProductImage(models.Model):
+    """Images multiples d'un produit (AJOUT SEUL — Product.image gardée comme principale)."""
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE,
+        related_name='images', verbose_name='Produit'
+    )
+    image = models.ImageField(upload_to='products/gallery/', verbose_name='Image')
+    sort_order = models.PositiveSmallIntegerField(default=0, verbose_name='Ordre')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Image Produit'
+        verbose_name_plural = 'Images Produits'
+        ordering = ['sort_order', 'created_at']
+
+    def __str__(self):
+        return f"{self.product.sku} #{self.sort_order}"
+
+
 # ── Packages / Coffrets Swisderm (AJOUT SEUL — nouvelles tables) ────────────
 
 class Package(models.Model):
@@ -121,6 +141,10 @@ class Package(models.Model):
     )
     name = models.CharField(max_length=200, verbose_name='Nom du package')
     description = models.TextField(blank=True, verbose_name='Description')
+    image = models.ImageField(
+        upload_to='packages/', blank=True, null=True,
+        verbose_name='Image package'
+    )
     price = models.DecimalField(max_digits=18, decimal_places=3, verbose_name='Prix package (BIF)')
     stock_quantity = models.DecimalField(max_digits=15, decimal_places=3, default=0, verbose_name='Stock packages')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE, verbose_name='Statut')

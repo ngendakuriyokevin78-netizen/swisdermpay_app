@@ -1,6 +1,11 @@
 """Admin Boutique (ajout seul)."""
 from django.contrib import admin
-from .models import ProductCategory, Product, Order, OrderItem, Package, PackageItem
+from .models import ProductCategory, Product, Order, OrderItem, Package, PackageItem, ProductImage
+
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
 
 
 @admin.register(ProductCategory)
@@ -14,6 +19,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ['sku', 'name', 'price', 'stock_quantity', 'status', 'merchant']
     list_filter = ['status', 'merchant']
     search_fields = ['sku', 'name']
+    inlines = [ProductImageInline]
 
 
 class OrderItemInline(admin.TabularInline):
